@@ -1,10 +1,25 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Building, Users, FileText, BarChart3, CheckCircle, Clock, AlertCircle, Plus, MapPin, Phone, Mail, Edit, Trash2, Eye, Upload } from 'lucide-react';
 import type { Company, Partner as PartnerType } from '../services/dataService';
 import { selectCompanies, selectKanbanColumns, selectPartners, useWaterDataStore } from '../store/useWaterDataStore';
+import { formatCurrency, formatEmail, formatPhone } from '../utils/formatters';
+
+type ActiveTab = 'dashboard' | 'companies' | 'partners' | 'kanban';
+type FormType = 'company' | 'partner';
+type FormValues = Partial<{
+  name: string;
+  type: string;
+  stores: number;
+  totalValue: number;
+  contactName: string;
+  contactPhone: string;
+  contactEmail: string;
+  region: string;
+  cities: string[];
+}>;
 
 const WaterDistributionSystem = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const companies = useWaterDataStore(selectCompanies);
   const partners = useWaterDataStore(selectPartners);
   const kanbanColumns = useWaterDataStore(selectKanbanColumns);
@@ -20,8 +35,8 @@ const WaterDistributionSystem = () => {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [selectedPartner, setSelectedPartner] = useState<PartnerType | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [formType, setFormType] = useState('company');
-  const [formData, setFormData] = useState({});
+  const [formType, setFormType] = useState<FormType>('company');
+  const [formData, setFormData] = useState<FormValues>({});
 
   const isIdle = status.companies === 'idle' && status.partners === 'idle' && status.kanban === 'idle';
 
@@ -150,7 +165,7 @@ const WaterDistributionSystem = () => {
                     <p className="text-sm text-gray-600">{company.stores} lojas</p>
                   </div>
                   <p className="font-semibold text-green-600">
-                    R$ {company.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    {formatCurrency(company.totalValue)}
                   </p>
                 </div>
               ))}
@@ -197,7 +212,7 @@ const WaterDistributionSystem = () => {
                 <td className="px-6 py-4 text-sm text-gray-900">{company.type}</td>
                 <td className="px-6 py-4 text-sm text-gray-900">{company.stores}</td>
                 <td className="px-6 py-4 text-sm text-gray-900">
-                  R$ {company.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {formatCurrency(company.totalValue)}
                 </td>
                 <td className="px-6 py-4">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -266,11 +281,11 @@ const WaterDistributionSystem = () => {
               </div>
               <div className="flex items-center text-gray-600">
                 <Phone className="mr-2" size={16} />
-                <span>{partner.contact.phone}</span>
+                <span>{formatPhone(partner.contact.phone)}</span>
               </div>
               <div className="flex items-center text-gray-600">
                 <Mail className="mr-2" size={16} />
-                <span>{partner.contact.email}</span>
+                <span>{formatEmail(partner.contact.email)}</span>
               </div>
             </div>
 
@@ -410,7 +425,7 @@ const WaterDistributionSystem = () => {
                 <div className="space-y-2 text-sm">
                   <p><span className="font-medium">Tipo:</span> {selectedCompany.type}</p>
                   <p><span className="font-medium">Total de Lojas:</span> {selectedCompany.stores}</p>
-                  <p><span className="font-medium">Valor Total:</span> R$ {selectedCompany.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p><span className="font-medium">Valor Total:</span> {formatCurrency(selectedCompany.totalValue)}</p>
                   <p><span className="font-medium">Status:</span> {selectedCompany.status}</p>
                 </div>
               </div>
@@ -419,8 +434,8 @@ const WaterDistributionSystem = () => {
                 <h3 className="text-lg font-semibold mb-3">Contato Responsável</h3>
                 <div className="space-y-2 text-sm">
                   <p><span className="font-medium">Nome:</span> {selectedCompany.contact.name}</p>
-                  <p><span className="font-medium">Telefone:</span> {selectedCompany.contact.phone}</p>
-                  <p><span className="font-medium">Email:</span> {selectedCompany.contact.email}</p>
+                  <p><span className="font-medium">Telefone:</span> {formatPhone(selectedCompany.contact.phone)}</p>
+                  <p><span className="font-medium">Email:</span> {formatEmail(selectedCompany.contact.email)}</p>
                 </div>
               </div>
             </div>
@@ -492,11 +507,11 @@ const WaterDistributionSystem = () => {
                   </div>
                   <div className="flex items-center">
                     <Phone className="mr-2 text-gray-400" size={16} />
-                    <span>{selectedPartner.contact.phone}</span>
+                    <span>{formatPhone(selectedPartner.contact.phone)}</span>
                   </div>
                   <div className="flex items-center">
                     <Mail className="mr-2 text-gray-400" size={16} />
-                    <span>{selectedPartner.contact.email}</span>
+                    <span>{formatEmail(selectedPartner.contact.email)}</span>
                   </div>
                 </div>
               </div>
@@ -540,16 +555,16 @@ const WaterDistributionSystem = () => {
   const renderForm = () => {
     if (!showForm) return null;
 
-    const handleSubmit = (e) => {
-      e.preventDefault();
+    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
       // Aqui você adicionaria a lógica para salvar os dados
       console.warn('Salvar formulário ainda não implementado:', formData);
       setShowForm(false);
       setFormData({});
     };
 
-    const handleInputChange = (field, value) => {
-      setFormData({ ...formData, [field]: value });
+    const handleInputChange = <Field extends keyof FormValues>(field: Field, value: FormValues[Field]) => {
+      setFormData((previous) => ({ ...previous, [field]: value }));
     };
 
     return (

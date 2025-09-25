@@ -1,52 +1,22 @@
-import { RawCompany, RawKanbanItem, RawPartner } from '../types/ipc';
+import type { RawCompany, RawKanbanItem, RawPartner, WindowApi } from '../types/ipc';
+import {
+  Company,
+  Contact,
+  KanbanItem,
+  NormalizedEntities,
+  NormalizedKanban,
+  Partner,
+  RECEIPT_STAGES,
+  ReceiptStage,
+} from '../types/entities';
 
-type Contact = {
-  name: string;
-  phone: string;
-  email: string;
-};
-
-export type CompanyStatus = 'ativo' | 'inativo';
-export type PartnerReceiptsStatus = 'enviado' | 'pendente';
-export type KanbanStage = 'recebimento' | 'relatorio' | 'nota_fiscal';
-
-export type Company = {
-  id: number;
-  name: string;
-  type: string;
-  stores: number;
-  totalValue: number;
-  status: CompanyStatus;
-  contact: Contact;
-};
-
-export type Partner = {
-  id: number;
-  name: string;
-  region: string;
-  cities: string[];
-  contact: Contact;
-  status: CompanyStatus;
-  receiptsStatus: PartnerReceiptsStatus;
-};
-
-export type KanbanItem = {
-  key: string;
-  company: string;
-  stage: KanbanStage;
-  receipts: number;
-  total: number;
-};
-
-export type NormalizedEntities<T extends { id: number }> = {
-  byId: Record<number, T>;
-  allIds: number[];
-};
-
-export type NormalizedKanban = {
-  items: Record<string, KanbanItem>;
-  byStage: Record<KanbanStage, string[]>;
-};
+export type {
+  Company,
+  Partner,
+  KanbanItem,
+  NormalizedEntities,
+  NormalizedKanban,
+} from '../types/entities';
 
 const emptyContact: Contact = { name: '', phone: '', email: '' };
 
@@ -196,6 +166,13 @@ function normalizeEntities<T extends { id: number }>(items: T[]): NormalizedEnti
   );
 }
 
+function createEmptyStageMap(): Record<ReceiptStage, string[]> {
+  return RECEIPT_STAGES.reduce<Record<ReceiptStage, string[]>>((acc, stage) => {
+    acc[stage] = [];
+    return acc;
+  }, {} as Record<ReceiptStage, string[]>);
+}
+
 function normalizeKanban(items: KanbanItem[]): NormalizedKanban {
   return items.reduce<NormalizedKanban>(
     (acc, item) => {
@@ -205,19 +182,15 @@ function normalizeKanban(items: KanbanItem[]): NormalizedKanban {
     },
     {
       items: {},
-      byStage: {
-        recebimento: [],
-        relatorio: [],
-        nota_fiscal: []
-      }
+      byStage: createEmptyStageMap(),
     }
   );
 }
 
-async function fetchFromApi<T>(fallback: T, loader: () => Promise<T>): Promise<T> {
+async function fetchFromApi<T>(fallback: T, loader: (api: WindowApi) => Promise<T>): Promise<T> {
   if (!window.api) return fallback;
   try {
-    const result = await loader();
+    const result = await loader(window.api);
     if (!result || (Array.isArray(result) && result.length === 0)) {
       return fallback;
     }
@@ -229,19 +202,19 @@ async function fetchFromApi<T>(fallback: T, loader: () => Promise<T>): Promise<T
 }
 
 export async function fetchCompanies(): Promise<NormalizedEntities<Company>> {
-  const raw = await fetchFromApi(fallbackCompanies, () => window.api!.companies.list());
+  const raw = await fetchFromApi(fallbackCompanies, (api) => api.companies.list());
   const companies = raw.map(adaptCompany);
   return normalizeEntities(companies);
 }
 
 export async function fetchPartners(): Promise<NormalizedEntities<Partner>> {
-  const raw = await fetchFromApi(fallbackPartners, () => window.api!.partners.list());
+  const raw = await fetchFromApi(fallbackPartners, (api) => api.partners.list());
   const partners = raw.map(adaptPartner);
   return normalizeEntities(partners);
 }
 
 export async function fetchKanban(): Promise<NormalizedKanban> {
-  const raw = await fetchFromApi(fallbackKanban, () => window.api!.kanban.list());
+  const raw = await fetchFromApi(fallbackKanban, (api) => api.kanban.list());
   const items = raw.map(adaptKanbanItem);
   return normalizeKanban(items);
 }
@@ -257,10 +230,6 @@ export function createEmptyPartners(): NormalizedEntities<Partner> {
 export function createEmptyKanban(): NormalizedKanban {
   return {
     items: {},
-    byStage: {
-      recebimento: [],
-      relatorio: [],
-      nota_fiscal: []
-    }
+    byStage: createEmptyStageMap(),
   };
 }
