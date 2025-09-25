@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useId, type KeyboardEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useId,
+  type ChangeEvent,
+  type KeyboardEvent
+} from 'react';
 import {
   ArrowRight,
   Building,
@@ -16,8 +25,10 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Company, Partner as PartnerType } from '../services/dataService';
+import { STATUSES, type Status } from '../types/entities';
 import { selectCompanies, selectKanbanColumns, selectPartners, useWaterDataStore } from '../store/useWaterDataStore';
 import { formatCurrency, formatEmail, formatPhone } from '../utils/formatters';
+import { useThemePreference } from '../hooks/useThemePreference';
 import CompanyForm, { type CompanyFormValues } from './forms/CompanyForm';
 import PartnerForm, { type PartnerFormValues } from './forms/PartnerForm';
 import OverlayDialog from './ui/OverlayDialog';
@@ -27,6 +38,7 @@ import PartnerCard from './common/PartnerCard';
 import CompanyRow from './common/CompanyRow';
 import ProgressBar from './common/ProgressBar';
 import BadgeStatus from './common/BadgeStatus';
+import ThemeToggle from './common/ThemeToggle';
 import { RECEIPT_STAGE_METADATA, RECEIPT_STAGE_ORDER } from '../constants/receiptStageMetadata';
 import type { KanbanItem, ReceiptStage } from '../types/entities';
 
@@ -63,6 +75,27 @@ const InlineSpinner = ({ label }: { label: string }) => (
   </div>
 );
 
+const PAGE_SIZE = 10;
+
+type SortKey = 'name' | 'stores' | 'totalValue';
+type SortDirection = 'asc' | 'desc';
+type SortConfig = { key: SortKey; direction: SortDirection };
+
+type StoreRangeValue = 'all' | '0-10' | '11-50' | '51-100' | '101+';
+type StatusFilterValue = 'all' | Status;
+
+const STORE_RANGE_OPTIONS: Array<{
+  value: StoreRangeValue;
+  label: string;
+  matches: (stores: number) => boolean;
+}> = [
+  { value: 'all', label: 'Todas as faixas', matches: () => true },
+  { value: '0-10', label: 'Até 10 lojas', matches: (stores) => stores <= 10 },
+  { value: '11-50', label: '11 a 50 lojas', matches: (stores) => stores >= 11 && stores <= 50 },
+  { value: '51-100', label: '51 a 100 lojas', matches: (stores) => stores >= 51 && stores <= 100 },
+  { value: '101+', label: 'Acima de 100 lojas', matches: (stores) => stores >= 101 }
+];
+
 const KanbanCardActionButton = ({
   icon: Icon,
   label,
@@ -84,6 +117,7 @@ const KanbanCardActionButton = ({
 );
 
 const WaterDistributionSystem = () => {
+  const { preference: themePreference, resolvedTheme, setPreference: setThemePreference } = useThemePreference();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const companies = useWaterDataStore(selectCompanies);
   const partners = useWaterDataStore(selectPartners);
@@ -102,6 +136,12 @@ const WaterDistributionSystem = () => {
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState<FormType>('company');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('all');
+  const [storeRange, setStoreRange] = useState<StoreRangeValue>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
+  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
   const toastTimers = useRef<Record<string, number>>({});
   const companyTitleRef = useRef<HTMLHeadingElement>(null);
   const partnerTitleRef = useRef<HTMLHeadingElement>(null);
@@ -109,6 +149,7 @@ const WaterDistributionSystem = () => {
   const companyDialogTitleId = useId();
   const partnerDialogTitleId = useId();
   const formDialogTitleId = useId();
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const isIdle = status.companies === 'idle' && status.partners === 'idle' && status.kanban === 'idle';
 
@@ -191,6 +232,163 @@ const WaterDistributionSystem = () => {
     info: 'border-blue-200 bg-blue-50 text-blue-900',
     error: 'border-red-200 bg-red-50 text-red-900'
   };
+
+  const handleSearchTermChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value);
+  }, []);
+
+  const handleStatusFilterChange = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
+    setStatusFilter(event.target.value as StatusFilterValue);
+  }, []);
+
+  const handleTypeFilterChange = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
+    setTypeFilter(event.target.value);
+  }, []);
+
+  const handleStoreRangeChange = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
+    setStoreRange(event.target.value as StoreRangeValue);
+  }, []);
+
+  const handleSort = useCallback((key: SortKey) => {
+    setSortConfig((previous) =>
+      previous.key === key
+        ? { key, direction: previous.direction === 'asc' ? 'desc' : 'asc' }
+        : { key, direction: 'asc' }
+    );
+  }, []);
+
+  const getSortIndicator = useCallback(
+    (key: SortKey) => {
+      if (sortConfig.key !== key) {
+        return '⇅';
+      }
+      return sortConfig.direction === 'asc' ? '▲' : '▼';
+    },
+    [sortConfig]
+  );
+
+  const getAriaSort = useCallback(
+    (key: SortKey): 'ascending' | 'descending' | 'none' => {
+      if (sortConfig.key !== key) {
+        return 'none';
+      }
+      return sortConfig.direction === 'asc' ? 'ascending' : 'descending';
+    },
+    [sortConfig]
+  );
+
+  const companyTypeOptions = useMemo(() => {
+    const types = companies.reduce<string[]>((accumulator, company) => {
+      if (company.type && !accumulator.includes(company.type)) {
+        accumulator.push(company.type);
+      }
+      return accumulator;
+    }, []);
+
+    return types.sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
+  }, [companies]);
+
+  useEffect(() => {
+    if (typeFilter === 'all') return;
+    if (!companyTypeOptions.includes(typeFilter)) {
+      setTypeFilter('all');
+    }
+  }, [companyTypeOptions, typeFilter]);
+
+  const filteredCompanies = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const storeRangeOption =
+      STORE_RANGE_OPTIONS.find((option) => option.value === storeRange) ?? STORE_RANGE_OPTIONS[0];
+
+    return companies.filter((company) => {
+      if (statusFilter !== 'all' && company.status !== statusFilter) {
+        return false;
+      }
+
+      if (typeFilter !== 'all' && company.type !== typeFilter) {
+        return false;
+      }
+
+      if (!storeRangeOption.matches(company.stores)) {
+        return false;
+      }
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      const haystack = [
+        company.name,
+        company.type,
+        company.contact.name,
+        company.contact.email,
+        company.contact.phone
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(normalizedSearch);
+    });
+  }, [companies, searchTerm, statusFilter, storeRange, typeFilter]);
+
+  const sortedCompanies = useMemo(() => {
+    const sorted = [...filteredCompanies];
+
+    const directionMultiplier = sortConfig.direction === 'asc' ? 1 : -1;
+
+    sorted.sort((a, b) => {
+      if (sortConfig.key === 'name') {
+        return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }) * directionMultiplier;
+      }
+
+      if (sortConfig.key === 'stores') {
+        return (a.stores - b.stores) * directionMultiplier;
+      }
+
+      return (a.totalValue - b.totalValue) * directionMultiplier;
+    });
+
+    return sorted;
+  }, [filteredCompanies, sortConfig]);
+
+  const visibleCompanies = useMemo(
+    () => sortedCompanies.slice(0, Math.max(visibleCount, 0)),
+    [sortedCompanies, visibleCount]
+  );
+
+  const totalFilteredCompanies = filteredCompanies.length;
+  const hasMoreCompanies = totalFilteredCompanies > visibleCount;
+
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+
+    if (!sentinel || !hasMoreCompanies) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry?.isIntersecting) {
+          setVisibleCount((previous) =>
+            Math.min(previous + PAGE_SIZE, totalFilteredCompanies)
+          );
+        }
+      },
+      { rootMargin: '0px 0px 200px 0px', threshold: 0.1 }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMoreCompanies, totalFilteredCompanies]);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [searchTerm, statusFilter, storeRange, typeFilter]);
 
   const pendingReceiptsCount = useMemo(
     () => partners.filter(partner => partner.receiptsStatus === 'pendente').length,
@@ -517,14 +715,128 @@ const WaterDistributionSystem = () => {
         </button>
       </div>
 
+      <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <label htmlFor="company-search" className="block text-sm font-medium text-gray-700">
+            Buscar
+          </label>
+          <input
+            id="company-search"
+            type="search"
+            value={searchTerm}
+            onChange={handleSearchTermChange}
+            placeholder="Pesquisar por nome, contato ou tipo"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="company-status-filter" className="block text-sm font-medium text-gray-700">
+            Status
+          </label>
+          <select
+            id="company-status-filter"
+            value={statusFilter}
+            onChange={handleStatusFilterChange}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="all">Todos os status</option>
+            {STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="company-type-filter" className="block text-sm font-medium text-gray-700">
+            Tipo de empresa
+          </label>
+          <select
+            id="company-type-filter"
+            value={typeFilter}
+            onChange={handleTypeFilterChange}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="all">Todos os tipos</option>
+            {companyTypeOptions.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="company-store-filter" className="block text-sm font-medium text-gray-700">
+            Faixa de lojas
+          </label>
+          <select
+            id="company-store-filter"
+            value={storeRange}
+            onChange={handleStoreRangeChange}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            {STORE_RANGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div className="overflow-hidden rounded-lg border bg-white">
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Empresa</th>
+              <th
+                className="px-6 py-3 text-left"
+                aria-sort={getAriaSort('name')}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleSort('name')}
+                  className="flex items-center gap-1 text-xs font-medium uppercase text-gray-500 focus:outline-none"
+                >
+                  <span>Empresa</span>
+                  <span aria-hidden="true" className="text-[10px] text-gray-400">
+                    {getSortIndicator('name')}
+                  </span>
+                </button>
+              </th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Tipo</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Lojas</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Valor Total</th>
+              <th
+                className="px-6 py-3 text-left"
+                aria-sort={getAriaSort('stores')}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleSort('stores')}
+                  className="flex items-center gap-1 text-xs font-medium uppercase text-gray-500 focus:outline-none"
+                >
+                  <span>Lojas</span>
+                  <span aria-hidden="true" className="text-[10px] text-gray-400">
+                    {getSortIndicator('stores')}
+                  </span>
+                </button>
+              </th>
+              <th
+                className="px-6 py-3 text-left"
+                aria-sort={getAriaSort('totalValue')}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleSort('totalValue')}
+                  className="flex items-center gap-1 text-xs font-medium uppercase text-gray-500 focus:outline-none"
+                >
+                  <span>Valor Total</span>
+                  <span aria-hidden="true" className="text-[10px] text-gray-400">
+                    {getSortIndicator('totalValue')}
+                  </span>
+                </button>
+              </th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Ações</th>
             </tr>
@@ -562,8 +874,8 @@ const WaterDistributionSystem = () => {
                   </td>
                 </tr>
               ))
-            ) : (
-              companies.map((company) => (
+            ) : visibleCompanies.length > 0 ? (
+              visibleCompanies.map((company) => (
                 <CompanyRow
                   key={company.id}
                   company={company}
@@ -573,6 +885,12 @@ const WaterDistributionSystem = () => {
                   onActionKeyDown={handleActionKeyDown}
                 />
               ))
+            ) : (
+              <tr>
+                <td colSpan={6} className="px-6 py-6 text-center text-sm text-gray-500">
+                  Nenhuma empresa encontrada com os filtros selecionados.
+                </td>
+              </tr>
             )}
             {isFetchingCompanies && companies.length > 0 && !errors.companies && (
               <tr>
@@ -584,6 +902,16 @@ const WaterDistributionSystem = () => {
           </tbody>
         </table>
       </div>
+      {!errors.companies && !showCompaniesSkeleton && (
+        <div className="px-1 py-4 text-sm text-gray-600 sm:px-0">
+          <p>
+            Mostrando {visibleCompanies.length} de {totalFilteredCompanies}{' '}
+            {totalFilteredCompanies === 1 ? 'empresa' : 'empresas'}
+            {hasMoreCompanies && <span className="ml-1 text-gray-400">Role para carregar mais resultados.</span>}
+          </p>
+        </div>
+      )}
+      <div ref={loadMoreRef} aria-hidden="true" className="h-1 w-full" />
     </div>
   );
 
@@ -1054,7 +1382,14 @@ const WaterDistributionSystem = () => {
               <h1 className="text-xl font-bold text-gray-900">AquaDistrib Pro</h1>
             </div>
 
-            <ToolbarTabs tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
+            <div className="flex items-center space-x-4">
+              <ToolbarTabs tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
+              <ThemeToggle
+                preference={themePreference}
+                resolvedTheme={resolvedTheme}
+                onChange={setThemePreference}
+              />
+            </div>
           </div>
         </div>
       </nav>
