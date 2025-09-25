@@ -1,12 +1,20 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { cn } from '../../utils/cn';
 
-type AccessibleModalProps = {
+type OverlayDialogVariant = 'modal' | 'drawer';
+type DrawerPosition = 'left' | 'right';
+type OverlayDialogSize = 'sm' | 'md' | 'lg' | 'xl';
+
+type OverlayDialogProps = {
   isOpen: boolean;
   onClose: () => void;
   titleId: string;
   children: ReactNode;
   initialFocusRef?: React.RefObject<HTMLElement>;
   className?: string;
+  variant?: OverlayDialogVariant;
+  position?: DrawerPosition;
+  size?: OverlayDialogSize;
 };
 
 const FOCUSABLE_SELECTOR =
@@ -18,14 +26,41 @@ const isFocusable = (element: HTMLElement): boolean => {
   return true;
 };
 
-const AccessibleModal = ({
+const variantStyles: Record<OverlayDialogVariant, string> = {
+  modal: 'max-h-[90vh] w-full overflow-y-auto rounded-lg bg-white shadow-xl',
+  drawer: 'h-full w-full overflow-y-auto bg-white shadow-xl'
+};
+
+const modalSizeStyles: Record<OverlayDialogSize, string> = {
+  sm: 'max-w-md',
+  md: 'max-w-2xl',
+  lg: 'max-w-4xl',
+  xl: 'max-w-6xl'
+};
+
+const drawerSizeStyles: Record<OverlayDialogSize, string> = {
+  sm: 'max-w-sm',
+  md: 'max-w-md',
+  lg: 'max-w-lg',
+  xl: 'max-w-2xl'
+};
+
+const overlayAlignment: Record<OverlayDialogVariant, string> = {
+  modal: 'items-center justify-center',
+  drawer: 'items-stretch justify-end'
+};
+
+const OverlayDialog = ({
   isOpen,
   onClose,
   titleId,
   children,
   initialFocusRef,
-  className
-}: AccessibleModalProps) => {
+  className,
+  variant = 'modal',
+  position = 'right',
+  size = 'lg'
+}: OverlayDialogProps) => {
   const overlayRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -97,10 +132,17 @@ const AccessibleModal = ({
     }
   };
 
+  const positionClass = variant === 'drawer' && position === 'left' ? 'justify-start' : undefined;
+
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className={cn(
+        'fixed inset-0 z-50 flex bg-black/60',
+        variant === 'drawer' ? 'p-0 md:p-4' : 'p-4',
+        overlayAlignment[variant],
+        positionClass
+      )}
       onMouseDown={handleOverlayMouseDown}
       aria-labelledby={titleId}
       role="dialog"
@@ -108,9 +150,13 @@ const AccessibleModal = ({
     >
       <div
         ref={dialogRef}
-        className={`max-h-[90vh] w-full overflow-y-auto rounded-lg bg-white shadow-xl focus:outline-none ${
-          className ?? 'max-w-4xl'
-        }`}
+        className={cn(
+          variantStyles[variant],
+          variant === 'modal' ? modalSizeStyles[size] : drawerSizeStyles[size],
+          variant === 'drawer' ? 'ml-auto h-full' : undefined,
+          variant === 'drawer' && position === 'left' ? 'ml-0 mr-auto' : undefined,
+          className
+        )}
         tabIndex={-1}
       >
         {children}
@@ -119,4 +165,4 @@ const AccessibleModal = ({
   );
 };
 
-export default AccessibleModal;
+export default OverlayDialog;
