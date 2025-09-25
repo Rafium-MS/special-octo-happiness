@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Building, Users, FileText, BarChart3, CheckCircle, Clock, AlertCircle, Plus, MapPin, Phone, Mail, Edit, Trash2, Eye, Upload } from 'lucide-react';
 import type { Company, Partner as PartnerType } from '../services/dataService';
 import { selectCompanies, selectKanbanColumns, selectPartners, useWaterDataStore } from '../store/useWaterDataStore';
@@ -76,6 +76,53 @@ const WaterDistributionSystem = () => {
     companies.length === 0 &&
     partners.length === 0;
 
+  const pendingReceiptsCount = useMemo(
+    () => partners.filter(partner => partner.receiptsStatus === 'pendente').length,
+    [partners]
+  );
+
+  const totalStores = useMemo(
+    () => companies.reduce((acc, comp) => acc + comp.stores, 0),
+    [companies]
+  );
+
+  const companiesByRevenue = useMemo(
+    () => [...companies].sort((a, b) => b.totalValue - a.totalValue),
+    [companies]
+  );
+
+  const tabs = useMemo(
+    () => [
+      { id: 'dashboard' as const, label: 'Dashboard', icon: BarChart3 },
+      { id: 'companies' as const, label: 'Empresas', icon: Building },
+      { id: 'partners' as const, label: 'Parceiros', icon: Users },
+      { id: 'kanban' as const, label: 'Pipeline', icon: FileText }
+    ],
+    []
+  );
+
+  const handleTabChange = useCallback((tabId: ActiveTab) => {
+    setActiveTab(tabId);
+  }, []);
+
+  const handleOpenCompanyForm = useCallback(() => {
+    setShowForm(true);
+    setFormType('company');
+  }, []);
+
+  const handleOpenPartnerForm = useCallback(() => {
+    setShowForm(true);
+    setFormType('partner');
+  }, []);
+
+  const handleSelectCompany = useCallback((company: Company) => {
+    setSelectedCompany(company);
+  }, []);
+
+  const handleSelectPartner = useCallback((partner: PartnerType) => {
+    setSelectedPartner(partner);
+  }, []);
+
   const renderDashboard = () => (
     <div className="p-6 space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -103,9 +150,7 @@ const WaterDistributionSystem = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-yellow-600 font-medium">Comprovantes Pendentes</p>
-              <p className="text-2xl font-bold text-yellow-800">
-                {partners.filter(p => p.receiptsStatus === 'pendente').length}
-              </p>
+              <p className="text-2xl font-bold text-yellow-800">{pendingReceiptsCount}</p>
             </div>
             <Clock className="text-yellow-500" size={24} />
           </div>
@@ -115,9 +160,7 @@ const WaterDistributionSystem = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-purple-600 font-medium">Total de Lojas</p>
-              <p className="text-2xl font-bold text-purple-800">
-                {companies.reduce((acc, comp) => acc + comp.stores, 0)}
-              </p>
+              <p className="text-2xl font-bold text-purple-800">{totalStores}</p>
             </div>
             <BarChart3 className="text-purple-500" size={24} />
           </div>
@@ -156,9 +199,7 @@ const WaterDistributionSystem = () => {
         <div className="bg-white p-6 rounded-lg border">
           <h3 className="text-lg font-semibold mb-4">Empresas por Faturamento</h3>
           <div className="space-y-3">
-            {companies
-              .sort((a, b) => b.totalValue - a.totalValue)
-              .map(company => (
+            {companiesByRevenue.map(company => (
                 <div key={company.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
                   <div>
                     <p className="font-medium">{company.name}</p>
@@ -180,7 +221,7 @@ const WaterDistributionSystem = () => {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Empresas Cadastradas</h2>
         <button
-          onClick={() => { setShowForm(true); setFormType('company'); }}
+          onClick={handleOpenCompanyForm}
           className="bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-600"
         >
           <Plus size={20} />
@@ -226,7 +267,7 @@ const WaterDistributionSystem = () => {
                 <td className="px-6 py-4">
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => setSelectedCompany(company)}
+                      onClick={() => handleSelectCompany(company)}
                       className="text-blue-600 hover:text-blue-800"
                     >
                       <Eye size={16} />
@@ -252,7 +293,7 @@ const WaterDistributionSystem = () => {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Parceiros Distribuidores</h2>
         <button
-          onClick={() => { setShowForm(true); setFormType('partner'); }}
+          onClick={handleOpenPartnerForm}
           className="bg-green-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-600"
         >
           <Plus size={20} />
@@ -310,7 +351,7 @@ const WaterDistributionSystem = () => {
                   Comprovantes: {partner.receiptsStatus === 'enviado' ? 'Enviados' : 'Pendentes'}
                 </span>
                 <button
-                  onClick={() => setSelectedPartner(partner)}
+                  onClick={() => handleSelectPartner(partner)}
                   className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                 >
                   Ver Detalhes
@@ -773,15 +814,10 @@ const WaterDistributionSystem = () => {
             </div>
 
             <div className="flex space-x-1">
-              {[
-                { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-                { id: 'companies', label: 'Empresas', icon: Building },
-                { id: 'partners', label: 'Parceiros', icon: Users },
-                { id: 'kanban', label: 'Pipeline', icon: FileText }
-              ].map(tab => (
+              {tabs.map(tab => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium ${
                     activeTab === tab.id
                       ? 'bg-blue-500 text-white'
