@@ -2,10 +2,10 @@
   "name": "aquadistrib-pro",
   "private": true,
   "version": "0.1.0",
-  "main": "dist-electron/main.js",
-  "type": "module",
+  "main": "dist-electron/electron/main.js",
+  "type": "commonjs",
   "scripts": {
-    "dev": "concurrently -k -r \"vite\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "dev": "concurrently -k -r \"tsc -p electron/tsconfig.json --watch\" \"vite\" \"wait-on tcp:5173 && cross-env ELECTRON_RUN_AS_NODE=0 VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "build": "vite build && tsc -p electron/tsconfig.json && electron-builder",
     "preview": "vite preview",
     "lint": "eslint ."
@@ -21,9 +21,11 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.5.4",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "4.3.3",
     "concurrently": "^9.0.1",
     "cross-env": "^7.0.3",
     "electron": "^31.3.0",
