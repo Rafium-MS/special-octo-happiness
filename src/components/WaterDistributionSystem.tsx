@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useId, type FormEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useId, type KeyboardEvent } from 'react';
 import { Building, Users, FileText, BarChart3, CheckCircle, Clock, Plus, MapPin, Phone, Mail, Upload, Loader2 } from 'lucide-react';
 import type { Company, Partner as PartnerType } from '../services/dataService';
 import { selectCompanies, selectKanbanColumns, selectPartners, useWaterDataStore } from '../store/useWaterDataStore';
 import { formatCurrency, formatEmail, formatPhone } from '../utils/formatters';
+import CompanyForm, { type CompanyFormValues } from './forms/CompanyForm';
+import PartnerForm, { type PartnerFormValues } from './forms/PartnerForm';
 import OverlayDialog from './ui/OverlayDialog';
 import StatCard from './dashboard/StatCard';
 import ToolbarTabs from './common/ToolbarTabs';
@@ -13,18 +15,6 @@ import BadgeStatus from './common/BadgeStatus';
 
 type ActiveTab = 'dashboard' | 'companies' | 'partners' | 'kanban';
 type FormType = 'company' | 'partner';
-type FormValues = Partial<{
-  name: string;
-  type: string;
-  stores: number;
-  totalValue: number;
-  contactName: string;
-  contactPhone: string;
-  contactEmail: string;
-  region: string;
-  cities: string[];
-}>;
-
 type ToastTone = 'success' | 'info' | 'error';
 
 type ToastMessage = {
@@ -74,7 +64,6 @@ const WaterDistributionSystem = () => {
   const [selectedPartner, setSelectedPartner] = useState<PartnerType | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState<FormType>('company');
-  const [formData, setFormData] = useState<FormValues>({});
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const toastTimers = useRef<Record<string, number>>({});
   const companyTitleRef = useRef<HTMLHeadingElement>(null);
@@ -179,6 +168,14 @@ const WaterDistributionSystem = () => {
     [companies]
   );
 
+  const citySuggestions = useMemo(() => {
+    const suggestions = new Set<string>();
+    partners.forEach((partner) => {
+      partner.cities.forEach((city) => suggestions.add(city));
+    });
+    return Array.from(suggestions).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [partners]);
+
   const tabs = useMemo(
     () => [
       { id: 'dashboard' as const, label: 'Dashboard', icon: BarChart3 },
@@ -202,6 +199,132 @@ const WaterDistributionSystem = () => {
     setShowForm(true);
     setFormType('partner');
   }, []);
+
+  const handleCloseForm = useCallback(() => {
+    setShowForm(false);
+  }, []);
+
+  const handleCompanyFormSubmit = useCallback(
+    async (values: CompanyFormValues) => {
+      const payload = {
+        name: values.name,
+        type: values.type,
+        stores: values.stores,
+        total_value: values.totalValue,
+        status: values.status,
+        contact_name: values.contactName,
+        contact_phone: values.contactPhone,
+        contact_email: values.contactEmail,
+      } as const;
+
+      const state = useWaterDataStore.getState();
+      const fallbackId = state.companies.allIds.length > 0 ? Math.max(...state.companies.allIds) + 1 : 1;
+
+      try {
+        let newId = fallbackId;
+
+        if (window.api?.companies?.create) {
+          const response = await window.api.companies.create(payload);
+          if (!response || typeof response.id !== 'number') {
+            throw new Error('Resposta inválida ao criar empresa.');
+          }
+          newId = response.id;
+        }
+
+        const company: Company = {
+          id: newId,
+          name: values.name,
+          type: values.type,
+          stores: values.stores,
+          totalValue: values.totalValue,
+          status: values.status,
+          contact: {
+            name: values.contactName,
+            phone: values.contactPhone,
+            email: values.contactEmail,
+          },
+        };
+
+        useWaterDataStore.setState((current) => ({
+          companies: {
+            byId: { ...current.companies.byId, [company.id]: company },
+            allIds: current.companies.allIds.includes(company.id)
+              ? current.companies.allIds
+              : [...current.companies.allIds, company.id],
+          },
+        }));
+
+        showToast(`Empresa ${company.name} cadastrada com sucesso.`, 'success');
+        setShowForm(false);
+      } catch (error) {
+        console.error('[WaterDistributionSystem] Falha ao criar empresa', error);
+        const message = error instanceof Error ? error.message : 'Não foi possível salvar a empresa.';
+        throw new Error(message);
+      }
+    },
+    [showToast]
+  );
+
+  const handlePartnerFormSubmit = useCallback(
+    async (values: PartnerFormValues) => {
+      const payload = {
+        name: values.name,
+        region: values.region,
+        status: values.status,
+        receipts_status: values.receiptsStatus,
+        contact_name: values.contactName,
+        contact_phone: values.contactPhone,
+        contact_email: values.contactEmail,
+        cities_json: JSON.stringify(values.cities),
+      } as const;
+
+      const state = useWaterDataStore.getState();
+      const fallbackId = state.partners.allIds.length > 0 ? Math.max(...state.partners.allIds) + 1 : 1;
+
+      try {
+        let newId = fallbackId;
+
+        if (window.api?.partners?.create) {
+          const response = await window.api.partners.create(payload);
+          if (!response || typeof response.id !== 'number') {
+            throw new Error('Resposta inválida ao criar parceiro.');
+          }
+          newId = response.id;
+        }
+
+        const partner: PartnerType = {
+          id: newId,
+          name: values.name,
+          region: values.region,
+          cities: values.cities,
+          contact: {
+            name: values.contactName,
+            phone: values.contactPhone,
+            email: values.contactEmail,
+          },
+          status: values.status,
+          receiptsStatus: values.receiptsStatus,
+        };
+
+        useWaterDataStore.setState((current) => ({
+          partners: {
+            byId: { ...current.partners.byId, [partner.id]: partner },
+            allIds: current.partners.allIds.includes(partner.id)
+              ? current.partners.allIds
+              : [...current.partners.allIds, partner.id],
+          },
+        }));
+
+        showToast(`Parceiro ${partner.name} cadastrado com sucesso.`, 'success');
+        setShowForm(false);
+      } catch (error) {
+        console.error('[WaterDistributionSystem] Falha ao criar parceiro', error);
+        const message = error instanceof Error ? error.message : 'Não foi possível salvar o parceiro.';
+        throw new Error(message);
+      }
+    },
+    [showToast]
+  );
 
   const handleSelectCompany = useCallback((company: Company) => {
     setSelectedCompany(company);
@@ -806,26 +929,12 @@ const WaterDistributionSystem = () => {
   const renderForm = () => {
     if (!showForm) return null;
 
-    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      console.warn('Salvar formulário ainda não implementado:', formData);
-      const successMessage =
-        formType === 'company'
-          ? 'Empresa cadastrada com sucesso!'
-          : 'Parceiro cadastrado com sucesso!';
-      showToast(successMessage, 'success');
-      setShowForm(false);
-      setFormData({});
-    };
-
-    const handleInputChange = <Field extends keyof FormValues>(field: Field, value: FormValues[Field]) => {
-      setFormData((previous) => ({ ...previous, [field]: value }));
-    };
+    const title = formType === 'company' ? 'Nova Empresa' : 'Novo Parceiro';
 
     return (
       <OverlayDialog
         isOpen={showForm}
-        onClose={() => setShowForm(false)}
+        onClose={handleCloseForm}
         titleId={formDialogTitleId}
         initialFocusRef={formInitialFieldRef}
         className="max-w-2xl"
@@ -834,11 +943,11 @@ const WaterDistributionSystem = () => {
         <div className="border-b p-6">
           <div className="flex items-center justify-between">
             <h2 id={formDialogTitleId} className="text-2xl font-bold">
-              {formType === 'company' ? 'Nova Empresa' : 'Novo Parceiro'}
+              {title}
             </h2>
             <button
               type="button"
-              onClick={() => setShowForm(false)}
+              onClick={handleCloseForm}
               className="rounded p-2 text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
               aria-label="Fechar formulário"
             >
@@ -846,180 +955,22 @@ const WaterDistributionSystem = () => {
             </button>
           </div>
         </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <div className="p-6">
           {formType === 'company' ? (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome da Empresa *
-                </label>
-                <input
-                  type="text"
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ex: ANIMALE"
-                  ref={formInitialFieldRef}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  required
-                />
-              </div>
-
-              <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tipo de Negócio *
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Ex: Moda Feminina"
-                    onChange={(e) => handleInputChange('type', e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Número de Lojas
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Ex: 89"
-                      onChange={(e) => handleInputChange('stores', parseInt(e.target.value))}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Valor Total Mensal
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Ex: 15420.50"
-                      onChange={(e) => handleInputChange('totalValue', parseFloat(e.target.value))}
-                    />
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h4 className="font-medium mb-3">Dados do Responsável</h4>
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Nome do responsável"
-                      onChange={(e) => handleInputChange('contactName', e.target.value)}
-                    />
-                    <input
-                      type="tel"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Telefone"
-                      onChange={(e) => handleInputChange('contactPhone', e.target.value)}
-                    />
-                    <input
-                      type="email"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Email"
-                      onChange={(e) => handleInputChange('contactEmail', e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome do Parceiro *
-                </label>
-                <input
-                  type="text"
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Ex: Águas do Sul Ltda"
-                  ref={formInitialFieldRef}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  required
-                />
-              </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Região de Atuação *
-                  </label>
-                  <select
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    onChange={(e) => handleInputChange('region', e.target.value)}
-                    required
-                  >
-                    <option value="">Selecione a região</option>
-                    <option value="Norte">Norte</option>
-                    <option value="Nordeste">Nordeste</option>
-                    <option value="Centro-Oeste">Centro-Oeste</option>
-                    <option value="Sudeste">Sudeste</option>
-                    <option value="Sul">Sul</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Cidades de Atuação
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Separe as cidades por vírgula"
-                    onChange={(e) => handleInputChange('cities', e.target.value.split(',').map(city => city.trim()))}
-                  />
-                </div>
-
-                <div className="border-t pt-4">
-                  <h4 className="font-medium mb-3">Dados do Responsável</h4>
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      placeholder="Nome do responsável"
-                      onChange={(e) => handleInputChange('contactName', e.target.value)}
-                    />
-                    <input
-                      type="tel"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      placeholder="Telefone"
-                      onChange={(e) => handleInputChange('contactPhone', e.target.value)}
-                    />
-                    <input
-                      type="email"
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      placeholder="Email"
-                      onChange={(e) => handleInputChange('contactEmail', e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-end space-x-3 pt-6">
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className={`rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                  formType === 'company'
-                    ? 'bg-blue-500 hover:bg-blue-600'
-                    : 'bg-green-500 hover:bg-green-600'
-                }`}
-              >
-                Salvar
-              </button>
-            </div>
-          </form>
+            <CompanyForm
+              onSubmit={handleCompanyFormSubmit}
+              onCancel={handleCloseForm}
+              initialFocusRef={formInitialFieldRef}
+            />
+          ) : (
+            <PartnerForm
+              onSubmit={handlePartnerFormSubmit}
+              onCancel={handleCloseForm}
+              suggestions={citySuggestions}
+              initialFocusRef={formInitialFieldRef}
+            />
+          )}
+        </div>
       </OverlayDialog>
     );
   };
