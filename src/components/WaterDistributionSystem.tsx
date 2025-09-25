@@ -1,5 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useId, type KeyboardEvent } from 'react';
-import { Building, Users, FileText, BarChart3, CheckCircle, Clock, Plus, MapPin, Phone, Mail, Upload, Loader2 } from 'lucide-react';
+import {
+  ArrowRight,
+  Building,
+  Users,
+  FileText,
+  BarChart3,
+  Clock,
+  Plus,
+  MapPin,
+  Phone,
+  Mail,
+  Loader2,
+  Pencil,
+  History
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { Company, Partner as PartnerType } from '../services/dataService';
 import { selectCompanies, selectKanbanColumns, selectPartners, useWaterDataStore } from '../store/useWaterDataStore';
 import { formatCurrency, formatEmail, formatPhone } from '../utils/formatters';
@@ -12,6 +27,8 @@ import PartnerCard from './common/PartnerCard';
 import CompanyRow from './common/CompanyRow';
 import ProgressBar from './common/ProgressBar';
 import BadgeStatus from './common/BadgeStatus';
+import { RECEIPT_STAGE_METADATA, RECEIPT_STAGE_ORDER } from '../constants/receiptStageMetadata';
+import type { KanbanItem, ReceiptStage } from '../types/entities';
 
 type ActiveTab = 'dashboard' | 'companies' | 'partners' | 'kanban';
 type FormType = 'company' | 'partner';
@@ -44,6 +61,26 @@ const InlineSpinner = ({ label }: { label: string }) => (
     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
     <span>{label}</span>
   </div>
+);
+
+const KanbanCardActionButton = ({
+  icon: Icon,
+  label,
+  onClick
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white text-gray-500 transition hover:border-gray-300 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+    aria-label={label}
+  >
+    <Icon className="h-4 w-4" aria-hidden="true" />
+    <span className="sr-only">{label}</span>
+  </button>
 );
 
 const WaterDistributionSystem = () => {
@@ -135,8 +172,10 @@ const WaterDistributionSystem = () => {
     }
   }, [partners, selectedPartner?.id]);
 
-  const totalKanbanItems =
-    kanbanColumns.recebimento.length + kanbanColumns.relatorio.length + kanbanColumns.nota_fiscal.length;
+  const totalKanbanItems = useMemo(
+    () => RECEIPT_STAGE_ORDER.reduce((sum, stage) => sum + kanbanColumns[stage].length, 0),
+    [kanbanColumns]
+  );
   const isFetchingCompanies = status.companies === 'loading';
   const isFetchingPartners = status.partners === 'loading';
   const isFetchingKanban = status.kanban === 'loading';
@@ -649,34 +688,40 @@ const WaterDistributionSystem = () => {
     </div>
   );
 
-  const renderKanban = () => {
-    const columns = [
-      {
-        key: 'recebimento' as const,
-        title: 'Recebimento de Comprovantes',
-        icon: Upload,
-        tone: 'blue' as const,
-        items: kanbanColumns.recebimento,
-        progressLabel: 'comprovantes'
-      },
-      {
-        key: 'relatorio' as const,
-        title: 'Relatório Preenchido',
-        icon: FileText,
-        tone: 'yellow' as const,
-        items: kanbanColumns.relatorio,
-        progressLabel: 'processados'
-      },
-      {
-        key: 'nota_fiscal' as const,
-        title: 'Nota Fiscal Pronta',
-        icon: CheckCircle,
-        tone: 'green' as const,
-        items: kanbanColumns.nota_fiscal,
-        progressLabel: 'finalizados'
-      }
-    ];
+  const getNextStage = useCallback((stage: ReceiptStage) => {
+    const index = RECEIPT_STAGE_ORDER.indexOf(stage);
+    return index >= 0 ? RECEIPT_STAGE_ORDER[index + 1] ?? null : null;
+  }, []);
 
+  const handleMoveStage = useCallback(
+    (item: KanbanItem) => {
+      const nextStage = getNextStage(item.stage);
+      if (!nextStage) {
+        showToast(`${item.company} já está no estágio final do pipeline.`, 'info');
+        return;
+      }
+
+      const nextStageTitle = RECEIPT_STAGE_METADATA[nextStage].title;
+      showToast(`Mover ${item.company} para "${nextStageTitle}".`, 'info');
+    },
+    [getNextStage, showToast]
+  );
+
+  const handleEditTotals = useCallback(
+    (item: KanbanItem) => {
+      showToast(`Editar totais de ${item.company}.`, 'info');
+    },
+    [showToast]
+  );
+
+  const handleViewHistory = useCallback(
+    (item: KanbanItem) => {
+      showToast(`Abrir histórico de ${item.company}.`, 'info');
+    },
+    [showToast]
+  );
+
+  const renderKanban = () => {
     const columnToneStyles = {
       blue: { container: 'bg-blue-50', title: 'text-blue-800' },
       yellow: { container: 'bg-yellow-50', title: 'text-yellow-800' },
@@ -696,33 +741,55 @@ const WaterDistributionSystem = () => {
           <ErrorState message={errors.kanban} />
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {columns.map((column) => (
-              <div key={column.key} className={`${columnToneStyles[column.tone].container} rounded-lg p-4`}>
-                <h3 className={`mb-4 flex items-center font-semibold ${columnToneStyles[column.tone].title}`}>
-                  <column.icon className="mr-2" size={20} />
-                  {column.title}
-                </h3>
-                <div className="space-y-3">
-                  {showKanbanSkeleton
-                    ? Array.from({ length: 3 }).map((_, index) => (
-                        <div key={`${column.key}-skeleton-${index}`} className="rounded border bg-white p-3">
-                          <SkeletonLine width="w-48" />
-                          <SkeletonLine className="mt-2" width="w-24" />
-                          <SkeletonLine className="mt-3" width="w-full" height="h-2" />
-                        </div>
-                      ))
-                    : column.items.map((item) => (
-                        <div key={item.company} className="rounded border bg-white p-3">
-                          <p className="font-medium">{item.company}</p>
-                          <p className="text-sm text-gray-600">
-                            {item.receipts}/{item.total} {column.progressLabel}
-                          </p>
-                          <ProgressBar value={item.receipts} total={item.total} tone={column.tone} />
-                        </div>
-                      ))}
+            {RECEIPT_STAGE_ORDER.map((stage) => {
+              const column = RECEIPT_STAGE_METADATA[stage];
+              const Icon = column.icon;
+
+              return (
+                <div key={stage} className={`${columnToneStyles[column.tone].container} rounded-lg p-4`}>
+                  <h3 className={`mb-4 flex items-center font-semibold ${columnToneStyles[column.tone].title}`}>
+                    <Icon className="mr-2" size={20} />
+                    {column.title}
+                  </h3>
+                  <div className="space-y-3">
+                    {showKanbanSkeleton
+                      ? Array.from({ length: 3 }).map((_, index) => (
+                          <div key={`${stage}-skeleton-${index}`} className="rounded border bg-white p-3">
+                            <SkeletonLine width="w-48" />
+                            <SkeletonLine className="mt-2" width="w-24" />
+                            <SkeletonLine className="mt-3" width="w-full" height="h-2" />
+                          </div>
+                        ))
+                      : kanbanColumns[stage].map((item) => (
+                          <div key={item.company} className="rounded border bg-white p-3">
+                            <p className="font-medium">{item.company}</p>
+                            <p className="text-sm text-gray-600">
+                              {item.receipts}/{item.total} {column.progressLabel}
+                            </p>
+                            <ProgressBar value={item.receipts} total={item.total} tone={column.tone} />
+                            <div className="mt-3 flex items-center gap-2">
+                              <KanbanCardActionButton
+                                icon={ArrowRight}
+                                label={`Mover ${item.company} para o próximo estágio`}
+                                onClick={() => handleMoveStage(item)}
+                              />
+                              <KanbanCardActionButton
+                                icon={Pencil}
+                                label={`Editar totais de ${item.company}`}
+                                onClick={() => handleEditTotals(item)}
+                              />
+                              <KanbanCardActionButton
+                                icon={History}
+                                label={`Histórico de alterações de ${item.company}`}
+                                onClick={() => handleViewHistory(item)}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

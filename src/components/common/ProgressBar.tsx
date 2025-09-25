@@ -1,6 +1,6 @@
 import { cn } from '../../utils/cn';
 
-type ProgressTone = 'blue' | 'green' | 'yellow';
+export type ProgressTone = 'blue' | 'green' | 'yellow';
 
 type ProgressBarProps = {
   value: number;
@@ -15,8 +15,12 @@ const toneStyles: Record<ProgressTone, string> = {
   yellow: 'bg-yellow-500'
 };
 
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
 const ProgressBar = ({ value, total, tone = 'blue', className }: ProgressBarProps) => {
-  const percentage = Math.min(100, total > 0 ? (value / total) * 100 : 0);
+  const ratio = total > 0 ? value / total : 0;
+  const safeRatio = Number.isFinite(ratio) ? ratio : 0;
+  const percentage = clamp(safeRatio * 100, 0, 100);
 
   return (
     <div className={cn('mt-2 h-2 w-full rounded-full bg-gray-200', className)}>

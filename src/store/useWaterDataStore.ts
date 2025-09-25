@@ -11,6 +11,7 @@ import {
   fetchPartners,
   fetchKanban
 } from '../services/dataService';
+import { RECEIPT_STAGES, type ReceiptStage } from '../types/entities';
 import { createStore } from './createStore';
 
 type LoadStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -125,8 +126,8 @@ export const selectPartners = (state: WaterDataState): Partner[] =>
 
 export const selectKanbanColumns = (
   state: WaterDataState
-): Record<KanbanItem['stage'], KanbanItem[]> => ({
-  recebimento: state.kanban.byStage.recebimento.map((key) => state.kanban.items[key]),
-  relatorio: state.kanban.byStage.relatorio.map((key) => state.kanban.items[key]),
-  nota_fiscal: state.kanban.byStage.nota_fiscal.map((key) => state.kanban.items[key])
-});
+): Record<ReceiptStage, KanbanItem[]> =>
+  RECEIPT_STAGES.reduce<Record<ReceiptStage, KanbanItem[]>>((columns, stage) => {
+    columns[stage] = state.kanban.byStage[stage].map((key) => state.kanban.items[key]);
+    return columns;
+  }, {} as Record<ReceiptStage, KanbanItem[]>);
