@@ -18,6 +18,7 @@ import type { LucideIcon } from 'lucide-react';
 import type { Company, Partner as PartnerType } from '../services/dataService';
 import { selectCompanies, selectKanbanColumns, selectPartners, useWaterDataStore } from '../store/useWaterDataStore';
 import { formatCurrency, formatEmail, formatPhone } from '../utils/formatters';
+import { useThemePreference } from '../hooks/useThemePreference';
 import CompanyForm, { type CompanyFormValues } from './forms/CompanyForm';
 import PartnerForm, { type PartnerFormValues } from './forms/PartnerForm';
 import OverlayDialog from './ui/OverlayDialog';
@@ -27,6 +28,7 @@ import PartnerCard from './common/PartnerCard';
 import CompanyRow from './common/CompanyRow';
 import ProgressBar from './common/ProgressBar';
 import BadgeStatus from './common/BadgeStatus';
+import ThemeToggle from './common/ThemeToggle';
 import { RECEIPT_STAGE_METADATA, RECEIPT_STAGE_ORDER } from '../constants/receiptStageMetadata';
 import type { KanbanItem, ReceiptStage } from '../types/entities';
 
@@ -84,6 +86,7 @@ const KanbanCardActionButton = ({
 );
 
 const WaterDistributionSystem = () => {
+  const { preference: themePreference, resolvedTheme, setPreference: setThemePreference } = useThemePreference();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const companies = useWaterDataStore(selectCompanies);
   const partners = useWaterDataStore(selectPartners);
@@ -1054,7 +1057,14 @@ const WaterDistributionSystem = () => {
               <h1 className="text-xl font-bold text-gray-900">AquaDistrib Pro</h1>
             </div>
 
-            <ToolbarTabs tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
+            <div className="flex items-center space-x-4">
+              <ToolbarTabs tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
+              <ThemeToggle
+                preference={themePreference}
+                resolvedTheme={resolvedTheme}
+                onChange={setThemePreference}
+              />
+            </div>
           </div>
         </div>
       </nav>
