@@ -1,250 +1,81 @@
-import { useEffect, useMemo, useState } from 'react';
-import {
-  Building,
-  Users,
-  FileText,
-  BarChart3,
-  CheckCircle,
-  Clock,
-  AlertCircle,
-  Plus,
-  MapPin,
-  Phone,
-  Mail,
-  Edit,
-  Trash2,
-  Eye,
-  Upload
-} from 'lucide-react';
-
-declare global {
-  interface Window {
-    api?: {
-      companies: {
-        list(): Promise<any[]>;
-        create(data: any): Promise<any>;
-        update(data: any): Promise<any>;
-        delete(id: number): Promise<any>;
-      };
-      partners: {
-        list(): Promise<any[]>;
-        create(data: any): Promise<any>;
-        update(data: any): Promise<any>;
-        delete(id: number): Promise<any>;
-      };
-      kanban: {
-        list(): Promise<any[]>;
-        upsert(data: any): Promise<any>;
-      };
-    };
-  }
-}
-
-type Company = {
-  id: number;
-  name: string;
-  type: string;
-  stores: number;
-  totalValue: number;
-  status: string;
-  contact: {
-    name: string;
-    phone: string;
-    email: string;
-  };
-};
-
-type Partner = {
-  id: number;
-  name: string;
-  region: string;
-  cities: string[];
-  contact: {
-    name: string;
-    phone: string;
-    email: string;
-  };
-  status: string;
-  receiptsStatus: 'enviado' | 'pendente';
-};
-
-type KanbanEntry = {
-  company: string;
-  stage: 'recebimento' | 'relatorio' | 'nota_fiscal';
-  receipts: number;
-  total: number;
-};
-
-const fallbackCompanies: Company[] = [
-  {
-    id: 1,
-    name: 'ANIMALE',
-    type: 'Moda Feminina',
-    stores: 89,
-    totalValue: 15420.5,
-    status: 'ativo',
-    contact: { name: 'Maria Silva', phone: '(11) 99999-9999', email: 'contato@animale.com.br' }
-  },
-  {
-    id: 2,
-    name: 'AREZZO',
-    type: 'Calçados e Acessórios',
-    stores: 14,
-    totalValue: 8350.75,
-    status: 'ativo',
-    contact: { name: 'João Santos', phone: '(11) 88888-8888', email: 'parceria@arezzo.com.br' }
-  },
-  {
-    id: 3,
-    name: 'BAGAGGIO',
-    type: 'Artefatos de Couro',
-    stores: 29,
-    totalValue: 12200.25,
-    status: 'ativo',
-    contact: { name: 'Ana Costa', phone: '(11) 77777-7777', email: 'suprimentos@bagaggio.com.br' }
-  }
-];
-
-const fallbackPartners: Partner[] = [
-  {
-    id: 1,
-    name: 'Águas do Sul Ltda',
-    region: 'Sul',
-    cities: ['Porto Alegre', 'Curitiba', 'Florianópolis'],
-    contact: { name: 'Carlos Mendes', phone: '(51) 99999-0001', email: 'carlos@aguasdosul.com.br' },
-    status: 'ativo',
-    receiptsStatus: 'enviado'
-  },
-  {
-    id: 2,
-    name: 'Distribuição Nordeste',
-    region: 'Nordeste',
-    cities: ['Salvador', 'Recife', 'Fortaleza'],
-    contact: { name: 'Paula Oliveira', phone: '(71) 99999-0002', email: 'paula@distribnordeste.com.br' },
-    status: 'ativo',
-    receiptsStatus: 'pendente'
-  },
-  {
-    id: 3,
-    name: 'SP Águas Express',
-    region: 'Sudeste',
-    cities: ['São Paulo', 'Campinas', 'Santos'],
-    contact: { name: 'Roberto Lima', phone: '(11) 99999-0003', email: 'roberto@spaguas.com.br' },
-    status: 'ativo',
-    receiptsStatus: 'enviado'
-  }
-];
-
-const fallbackKanban: KanbanEntry[] = [
-  { company: 'ANIMALE', stage: 'recebimento', receipts: 45, total: 89 },
-  { company: 'AREZZO', stage: 'relatorio', receipts: 14, total: 14 },
-  { company: 'BAGAGGIO', stage: 'nota_fiscal', receipts: 29, total: 29 },
-  { company: 'CLARO', stage: 'recebimento', receipts: 123, total: 156 },
-  { company: 'DAISO', stage: 'relatorio', receipts: 67, total: 67 }
-];
+import React, { useState, useEffect } from 'react';
+import { Building, Users, FileText, BarChart3, CheckCircle, Clock, AlertCircle, Plus, Search, MapPin, Phone, Mail, Edit, Trash2, Eye, Upload } from 'lucide-react';
 
 const WaterDistributionSystem = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [companies, setCompanies] = useState<Company[]>(fallbackCompanies);
-  const [partners, setPartners] = useState<Partner[]>(fallbackPartners);
-  const [kanbanData, setKanbanData] = useState<KanbanEntry[]>(fallbackKanban);
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [companies, setCompanies] = useState([
+    {
+      id: 1,
+      name: 'ANIMALE',
+      type: 'Moda Feminina',
+      stores: 89,
+      totalValue: 15420.50,
+      status: 'ativo',
+      contact: { name: 'Maria Silva', phone: '(11) 99999-9999', email: 'contato@animale.com.br' }
+    },
+    {
+      id: 2,
+      name: 'AREZZO',
+      type: 'Calçados e Acessórios',
+      stores: 14,
+      totalValue: 8350.75,
+      status: 'ativo',
+      contact: { name: 'João Santos', phone: '(11) 88888-8888', email: 'parceria@arezzo.com.br' }
+    },
+    {
+      id: 3,
+      name: 'BAGAGGIO',
+      type: 'Artefatos de Couro',
+      stores: 29,
+      totalValue: 12200.25,
+      status: 'ativo',
+      contact: { name: 'Ana Costa', phone: '(11) 77777-7777', email: 'suprimentos@bagaggio.com.br' }
+    }
+  ]);
+
+  const [partners, setPartners] = useState([
+    {
+      id: 1,
+      name: 'Águas do Sul Ltda',
+      region: 'Sul',
+      cities: ['Porto Alegre', 'Curitiba', 'Florianópolis'],
+      contact: { name: 'Carlos Mendes', phone: '(51) 99999-0001', email: 'carlos@aguasdosul.com.br' },
+      status: 'ativo',
+      receiptsStatus: 'enviado'
+    },
+    {
+      id: 2,
+      name: 'Distribuição Nordeste',
+      region: 'Nordeste',
+      cities: ['Salvador', 'Recife', 'Fortaleza'],
+      contact: { name: 'Paula Oliveira', phone: '(71) 99999-0002', email: 'paula@distribnordeste.com.br' },
+      status: 'ativo',
+      receiptsStatus: 'pendente'
+    },
+    {
+      id: 3,
+      name: 'SP Águas Express',
+      region: 'Sudeste',
+      cities: ['São Paulo', 'Campinas', 'Santos'],
+      contact: { name: 'Roberto Lima', phone: '(11) 99999-0003', email: 'roberto@spaguas.com.br' },
+      status: 'ativo',
+      receiptsStatus: 'enviado'
+    }
+  ]);
+
+  const [kanbanData, setKanbanData] = useState([
+    { company: 'ANIMALE', stage: 'recebimento', receipts: 45, total: 89 },
+    { company: 'AREZZO', stage: 'relatorio', receipts: 14, total: 14 },
+    { company: 'BAGAGGIO', stage: 'nota_fiscal', receipts: 29, total: 29 },
+    { company: 'CLARO', stage: 'recebimento', receipts: 123, total: 156 },
+    { company: 'DAISO', stage: 'relatorio', receipts: 67, total: 67 }
+  ]);
+
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [selectedPartner, setSelectedPartner] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [formType, setFormType] = useState<'company' | 'partner'>('company');
-  const [isSyncing, setIsSyncing] = useState(false);
-
-  const totalStores = useMemo(
-    () => companies.reduce((accumulator, company) => accumulator + company.stores, 0),
-    [companies]
-  );
-
-  const partnersWithPendingReceipts = useMemo(
-    () => partners.filter(partner => partner.receiptsStatus === 'pendente').length,
-    [partners]
-  );
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchData = async () => {
-      if (!window.api) {
-        return;
-      }
-
-      try {
-        setIsSyncing(true);
-        const [companiesResponse, partnersResponse, kanbanResponse] = await Promise.all([
-          window.api.companies.list(),
-          window.api.partners.list(),
-          window.api.kanban.list()
-        ]);
-
-        if (!isMounted) {
-          return;
-        }
-
-        setCompanies(
-          companiesResponse.map((company: any): Company => ({
-            id: company.id,
-            name: company.name,
-            type: company.type,
-            stores: company.stores,
-            totalValue: company.total_value,
-            status: company.status,
-            contact: {
-              name: company.contact_name,
-              phone: company.contact_phone,
-              email: company.contact_email
-            }
-          }))
-        );
-
-        setPartners(
-          partnersResponse.map((partner: any): Partner => ({
-            id: partner.id,
-            name: partner.name,
-            region: partner.region,
-            cities: JSON.parse(partner.cities_json || '[]'),
-            contact: {
-              name: partner.contact_name,
-              phone: partner.contact_phone,
-              email: partner.contact_email
-            },
-            status: partner.status,
-            receiptsStatus: partner.receipts_status
-          }))
-        );
-
-        setKanbanData(
-          kanbanResponse.map((entry: any): KanbanEntry => ({
-            company: entry.company,
-            stage: entry.stage,
-            receipts: entry.receipts,
-            total: entry.total
-          }))
-        );
-      } catch (error) {
-        console.error('Erro ao carregar dados da API:', error);
-        if (!isMounted) {
-          return;
-        }
-
-        setCompanies(fallbackCompanies);
-        setPartners(fallbackPartners);
-        setKanbanData(fallbackKanban);
-      } finally {
-        if (isMounted) {
-          setIsSyncing(false);
-        }
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const [formType, setFormType] = useState('company');
+  const [formData, setFormData] = useState({});
 
   const renderDashboard = () => (
     <div className="p-6 space-y-6">
@@ -258,7 +89,7 @@ const WaterDistributionSystem = () => {
             <Building className="text-blue-500" size={24} />
           </div>
         </div>
-
+        
         <div className="bg-green-50 p-4 rounded-lg border border-green-200">
           <div className="flex items-center justify-between">
             <div>
@@ -268,22 +99,26 @@ const WaterDistributionSystem = () => {
             <Users className="text-green-500" size={24} />
           </div>
         </div>
-
+        
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-yellow-600 font-medium">Comprovantes Pendentes</p>
-              <p className="text-2xl font-bold text-yellow-800">{partnersWithPendingReceipts}</p>
+              <p className="text-2xl font-bold text-yellow-800">
+                {partners.filter(p => p.receiptsStatus === 'pendente').length}
+              </p>
             </div>
             <Clock className="text-yellow-500" size={24} />
           </div>
         </div>
-
+        
         <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-purple-600 font-medium">Total de Lojas</p>
-              <p className="text-2xl font-bold text-purple-800">{totalStores}</p>
+              <p className="text-2xl font-bold text-purple-800">
+                {companies.reduce((acc, comp) => acc + comp.stores, 0)}
+              </p>
             </div>
             <BarChart3 className="text-purple-500" size={24} />
           </div>
@@ -292,10 +127,7 @@ const WaterDistributionSystem = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-lg border">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Status dos Parceiros</h3>
-            {isSyncing && <span className="text-xs text-blue-500">Sincronizando…</span>}
-          </div>
+          <h3 className="text-lg font-semibold mb-4">Status dos Parceiros</h3>
           <div className="space-y-3">
             {partners.map(partner => (
               <div key={partner.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
@@ -309,13 +141,11 @@ const WaterDistributionSystem = () => {
                   ) : (
                     <AlertCircle className="text-yellow-500" size={20} />
                   )}
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      partner.receiptsStatus === 'enviado'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}
-                  >
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                    partner.receiptsStatus === 'enviado' 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
                     {partner.receiptsStatus === 'enviado' ? 'Enviado' : 'Pendente'}
                   </span>
                 </div>
@@ -327,7 +157,7 @@ const WaterDistributionSystem = () => {
         <div className="bg-white p-6 rounded-lg border">
           <h3 className="text-lg font-semibold mb-4">Empresas por Faturamento</h3>
           <div className="space-y-3">
-            {[...companies]
+            {companies
               .sort((a, b) => b.totalValue - a.totalValue)
               .map(company => (
                 <div key={company.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
@@ -351,10 +181,7 @@ const WaterDistributionSystem = () => {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Empresas Cadastradas</h2>
         <button
-          onClick={() => {
-            setShowForm(true);
-            setFormType('company');
-          }}
+          onClick={() => { setShowForm(true); setFormType('company'); }}
           className="bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-600"
         >
           <Plus size={20} />
@@ -389,19 +216,20 @@ const WaterDistributionSystem = () => {
                   R$ {company.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </td>
                 <td className="px-6 py-4">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      company.status === 'ativo'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}
-                  >
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    company.status === 'ativo' 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
                     {company.status}
                   </span>
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex space-x-2">
-                    <button onClick={() => setSelectedCompany(company)} className="text-blue-600 hover:text-blue-800">
+                    <button
+                      onClick={() => setSelectedCompany(company)}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
                       <Eye size={16} />
                     </button>
                     <button className="text-green-600 hover:text-green-800">
@@ -425,10 +253,7 @@ const WaterDistributionSystem = () => {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Parceiros Distribuidores</h2>
         <button
-          onClick={() => {
-            setShowForm(true);
-            setFormType('partner');
-          }}
+          onClick={() => { setShowForm(true); setFormType('partner'); }}
           className="bg-green-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-600"
         >
           <Plus size={20} />
@@ -477,15 +302,21 @@ const WaterDistributionSystem = () => {
             </div>
 
             <div className="mt-4 pt-4 border-t">
-              <span
-                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  partner.receiptsStatus === 'enviado'
-                    ? 'bg-green-100 text-green-800'
+              <div className="flex justify-between items-center">
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  partner.receiptsStatus === 'enviado' 
+                    ? 'bg-green-100 text-green-800' 
                     : 'bg-yellow-100 text-yellow-800'
-                }`}
-              >
-                Comprovantes: {partner.receiptsStatus === 'enviado' ? 'Enviados' : 'Pendentes'}
-              </span>
+                }`}>
+                  Comprovantes: {partner.receiptsStatus === 'enviado' ? 'Enviados' : 'Pendentes'}
+                </span>
+                <button
+                  onClick={() => setSelectedPartner(partner)}
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                  Ver Detalhes
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -496,7 +327,7 @@ const WaterDistributionSystem = () => {
   const renderKanban = () => (
     <div className="p-6">
       <h2 className="text-2xl font-bold mb-6">Pipeline de Processamento</h2>
-
+      
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-blue-50 rounded-lg p-4">
           <h3 className="font-semibold text-blue-800 mb-4 flex items-center">
@@ -511,7 +342,10 @@ const WaterDistributionSystem = () => {
                   {item.receipts}/{item.total} comprovantes
                 </p>
                 <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${(item.receipts / item.total) * 100}%` }} />
+                  <div 
+                    className="bg-blue-500 h-2 rounded-full" 
+                    style={{width: `${(item.receipts/item.total)*100}%`}}
+                  ></div>
                 </div>
               </div>
             ))}
@@ -531,7 +365,10 @@ const WaterDistributionSystem = () => {
                   {item.receipts}/{item.total} processados
                 </p>
                 <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div className="bg-yellow-500 h-2 rounded-full" style={{ width: `${(item.receipts / item.total) * 100}%` }} />
+                  <div 
+                    className="bg-yellow-500 h-2 rounded-full" 
+                    style={{width: `${(item.receipts/item.total)*100}%`}}
+                  ></div>
                 </div>
               </div>
             ))}
@@ -551,7 +388,10 @@ const WaterDistributionSystem = () => {
                   {item.receipts}/{item.total} finalizados
                 </p>
                 <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div className="bg-green-500 h-2 rounded-full" style={{ width: `${(item.receipts / item.total) * 100}%` }} />
+                  <div 
+                    className="bg-green-500 h-2 rounded-full" 
+                    style={{width: `${(item.receipts/item.total)*100}%`}}
+                  ></div>
                 </div>
               </div>
             ))}
@@ -562,17 +402,18 @@ const WaterDistributionSystem = () => {
   );
 
   const renderCompanyDetails = () => {
-    if (!selectedCompany) {
-      return null;
-    }
+    if (!selectedCompany) return null;
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="bg-white rounded-lg max-w-4xl w-full max-h-90vh overflow-y-auto">
           <div className="p-6 border-b">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">{selectedCompany.name}</h2>
-              <button onClick={() => setSelectedCompany(null)} className="text-gray-500 hover:text-gray-700">
+              <button
+                onClick={() => setSelectedCompany(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
                 ✕
               </button>
             </div>
@@ -583,34 +424,19 @@ const WaterDistributionSystem = () => {
               <div>
                 <h3 className="text-lg font-semibold mb-3">Informações da Empresa</h3>
                 <div className="space-y-2 text-sm">
-                  <p>
-                    <span className="font-medium">Tipo:</span> {selectedCompany.type}
-                  </p>
-                  <p>
-                    <span className="font-medium">Total de Lojas:</span> {selectedCompany.stores}
-                  </p>
-                  <p>
-                    <span className="font-medium">Valor Total:</span> R$
-                    {selectedCompany.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                  <p>
-                    <span className="font-medium">Status:</span> {selectedCompany.status}
-                  </p>
+                  <p><span className="font-medium">Tipo:</span> {selectedCompany.type}</p>
+                  <p><span className="font-medium">Total de Lojas:</span> {selectedCompany.stores}</p>
+                  <p><span className="font-medium">Valor Total:</span> R$ {selectedCompany.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p><span className="font-medium">Status:</span> {selectedCompany.status}</p>
                 </div>
               </div>
 
               <div>
                 <h3 className="text-lg font-semibold mb-3">Contato Responsável</h3>
                 <div className="space-y-2 text-sm">
-                  <p>
-                    <span className="font-medium">Nome:</span> {selectedCompany.contact.name}
-                  </p>
-                  <p>
-                    <span className="font-medium">Telefone:</span> {selectedCompany.contact.phone}
-                  </p>
-                  <p>
-                    <span className="font-medium">Email:</span> {selectedCompany.contact.email}
-                  </p>
+                  <p><span className="font-medium">Nome:</span> {selectedCompany.contact.name}</p>
+                  <p><span className="font-medium">Telefone:</span> {selectedCompany.contact.phone}</p>
+                  <p><span className="font-medium">Email:</span> {selectedCompany.contact.email}</p>
                 </div>
               </div>
             </div>
@@ -639,6 +465,297 @@ const WaterDistributionSystem = () => {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPartnerDetails = () => {
+    if (!selectedPartner) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg max-w-3xl w-full max-h-90vh overflow-y-auto">
+          <div className="p-6 border-b">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">{selectedPartner.name}</h2>
+              <button
+                onClick={() => setSelectedPartner(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Informações do Parceiro</h3>
+                <div className="space-y-2 text-sm">
+                  <p><span className="font-medium">Região de Atuação:</span> {selectedPartner.region}</p>
+                  <p><span className="font-medium">Status:</span> {selectedPartner.status}</p>
+                  <p><span className="font-medium">Comprovantes:</span> {selectedPartner.receiptsStatus === 'enviado' ? 'Enviados' : 'Pendentes'}</p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Dados de Contato</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center">
+                    <Users className="mr-2 text-gray-400" size={16} />
+                    <span>{selectedPartner.contact.name}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Phone className="mr-2 text-gray-400" size={16} />
+                    <span>{selectedPartner.contact.phone}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Mail className="mr-2 text-gray-400" size={16} />
+                    <span>{selectedPartner.contact.email}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3">Cidades de Atuação</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {selectedPartner.cities.map(city => (
+                  <div key={city} className="bg-blue-50 p-3 rounded-lg text-center">
+                    <MapPin className="mx-auto mb-1 text-blue-500" size={20} />
+                    <p className="font-medium text-blue-800">{city}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="text-lg font-semibold mb-3">Histórico de Entregas</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center p-2 bg-white rounded">
+                  <span className="text-sm">Novembro 2024</span>
+                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">Concluído</span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-white rounded">
+                  <span className="text-sm">Outubro 2024</span>
+                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">Concluído</span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-white rounded">
+                  <span className="text-sm">Setembro 2024</span>
+                  <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">Pendente</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderForm = () => {
+    if (!showForm) return null;
+
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      // Aqui você adicionaria a lógica para salvar os dados
+      console.log('Dados do formulário:', formData);
+      setShowForm(false);
+      setFormData({});
+    };
+
+    const handleInputChange = (field, value) => {
+      setFormData({ ...formData, [field]: value });
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg max-w-2xl w-full max-h-90vh overflow-y-auto">
+          <div className="p-6 border-b">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">
+                {formType === 'company' ? 'Nova Empresa' : 'Novo Parceiro'}
+              </h2>
+              <button
+                onClick={() => setShowForm(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-6">
+            {formType === 'company' ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nome da Empresa *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Ex: ANIMALE"
+                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tipo de Negócio *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Ex: Moda Feminina"
+                    onChange={(e) => handleInputChange('type', e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Número de Lojas
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Ex: 89"
+                      onChange={(e) => handleInputChange('stores', parseInt(e.target.value))}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Valor Total Mensal
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Ex: 15420.50"
+                      onChange={(e) => handleInputChange('totalValue', parseFloat(e.target.value))}
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-3">Dados do Responsável</h4>
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Nome do responsável"
+                      onChange={(e) => handleInputChange('contactName', e.target.value)}
+                    />
+                    <input
+                      type="tel"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Telefone"
+                      onChange={(e) => handleInputChange('contactPhone', e.target.value)}
+                    />
+                    <input
+                      type="email"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Email"
+                      onChange={(e) => handleInputChange('contactEmail', e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nome do Parceiro *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Ex: Águas do Sul Ltda"
+                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Região de Atuação *
+                  </label>
+                  <select
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    onChange={(e) => handleInputChange('region', e.target.value)}
+                    required
+                  >
+                    <option value="">Selecione a região</option>
+                    <option value="Norte">Norte</option>
+                    <option value="Nordeste">Nordeste</option>
+                    <option value="Centro-Oeste">Centro-Oeste</option>
+                    <option value="Sudeste">Sudeste</option>
+                    <option value="Sul">Sul</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Cidades de Atuação
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Separe as cidades por vírgula"
+                    onChange={(e) => handleInputChange('cities', e.target.value.split(',').map(city => city.trim()))}
+                  />
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-3">Dados do Responsável</h4>
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Nome do responsável"
+                      onChange={(e) => handleInputChange('contactName', e.target.value)}
+                    />
+                    <input
+                      type="tel"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Telefone"
+                      onChange={(e) => handleInputChange('contactPhone', e.target.value)}
+                    />
+                    <input
+                      type="email"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Email"
+                      onChange={(e) => handleInputChange('contactEmail', e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3 mt-6 pt-6 border-t">
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className={`px-4 py-2 text-white rounded-lg ${
+                  formType === 'company' 
+                    ? 'bg-blue-500 hover:bg-blue-600' 
+                    : 'bg-green-500 hover:bg-green-600'
+                }`}
+              >
+                Salvar
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     );
@@ -689,31 +806,6 @@ const WaterDistributionSystem = () => {
       </main>
 
       {selectedCompany && renderCompanyDetails()}
-
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg w-full max-w-lg">
-            <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-xl font-semibold">
-                {formType === 'company' ? 'Cadastrar Nova Empresa' : 'Cadastrar Novo Parceiro'}
-              </h2>
-              <button
-                onClick={() => setShowForm(false)}
-                className="text-gray-500 hover:text-gray-700"
-                aria-label="Fechar formulário"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-6">
-              <p className="text-sm text-gray-600">
-                A integração com o backend ainda não está disponível neste protótipo. Utilize os botões para visualizar o fluxo de
-                cadastro esperado.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
