@@ -1,81 +1,65 @@
-import React, { useState, useEffect } from 'react';
-import { Building, Users, FileText, BarChart3, CheckCircle, Clock, AlertCircle, Plus, Search, MapPin, Phone, Mail, Edit, Trash2, Eye, Upload } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Building, Users, FileText, BarChart3, CheckCircle, Clock, AlertCircle, Plus, MapPin, Phone, Mail, Edit, Trash2, Eye, Upload } from 'lucide-react';
+import type { Company, Partner as PartnerType } from '../services/dataService';
+import { selectCompanies, selectKanbanColumns, selectPartners, useWaterDataStore } from '../store/useWaterDataStore';
 
 const WaterDistributionSystem = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [companies, setCompanies] = useState([
-    {
-      id: 1,
-      name: 'ANIMALE',
-      type: 'Moda Feminina',
-      stores: 89,
-      totalValue: 15420.50,
-      status: 'ativo',
-      contact: { name: 'Maria Silva', phone: '(11) 99999-9999', email: 'contato@animale.com.br' }
-    },
-    {
-      id: 2,
-      name: 'AREZZO',
-      type: 'Calçados e Acessórios',
-      stores: 14,
-      totalValue: 8350.75,
-      status: 'ativo',
-      contact: { name: 'João Santos', phone: '(11) 88888-8888', email: 'parceria@arezzo.com.br' }
-    },
-    {
-      id: 3,
-      name: 'BAGAGGIO',
-      type: 'Artefatos de Couro',
-      stores: 29,
-      totalValue: 12200.25,
-      status: 'ativo',
-      contact: { name: 'Ana Costa', phone: '(11) 77777-7777', email: 'suprimentos@bagaggio.com.br' }
-    }
-  ]);
-
-  const [partners, setPartners] = useState([
-    {
-      id: 1,
-      name: 'Águas do Sul Ltda',
-      region: 'Sul',
-      cities: ['Porto Alegre', 'Curitiba', 'Florianópolis'],
-      contact: { name: 'Carlos Mendes', phone: '(51) 99999-0001', email: 'carlos@aguasdosul.com.br' },
-      status: 'ativo',
-      receiptsStatus: 'enviado'
-    },
-    {
-      id: 2,
-      name: 'Distribuição Nordeste',
-      region: 'Nordeste',
-      cities: ['Salvador', 'Recife', 'Fortaleza'],
-      contact: { name: 'Paula Oliveira', phone: '(71) 99999-0002', email: 'paula@distribnordeste.com.br' },
-      status: 'ativo',
-      receiptsStatus: 'pendente'
-    },
-    {
-      id: 3,
-      name: 'SP Águas Express',
-      region: 'Sudeste',
-      cities: ['São Paulo', 'Campinas', 'Santos'],
-      contact: { name: 'Roberto Lima', phone: '(11) 99999-0003', email: 'roberto@spaguas.com.br' },
-      status: 'ativo',
-      receiptsStatus: 'enviado'
-    }
-  ]);
-
-  const [kanbanData, setKanbanData] = useState([
-    { company: 'ANIMALE', stage: 'recebimento', receipts: 45, total: 89 },
-    { company: 'AREZZO', stage: 'relatorio', receipts: 14, total: 14 },
-    { company: 'BAGAGGIO', stage: 'nota_fiscal', receipts: 29, total: 29 },
-    { company: 'CLARO', stage: 'recebimento', receipts: 123, total: 156 },
-    { company: 'DAISO', stage: 'relatorio', receipts: 67, total: 67 }
-  ]);
-
-  const [selectedCompany, setSelectedCompany] = useState(null);
-  const [selectedPartner, setSelectedPartner] = useState(null);
+  const companies = useWaterDataStore(selectCompanies);
+  const partners = useWaterDataStore(selectPartners);
+  const kanbanColumns = useWaterDataStore(selectKanbanColumns);
+  const metaSelector = useCallback(
+    (state: ReturnType<typeof useWaterDataStore.getState>) => ({
+      fetchAll: state.fetchAll,
+      status: state.status,
+      errors: state.errors
+    }),
+    []
+  );
+  const { fetchAll, status, errors } = useWaterDataStore(metaSelector);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [selectedPartner, setSelectedPartner] = useState<PartnerType | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState('company');
   const [formData, setFormData] = useState({});
+
+  const isIdle = status.companies === 'idle' && status.partners === 'idle' && status.kanban === 'idle';
+
+  useEffect(() => {
+    if (isIdle) {
+      fetchAll();
+    }
+  }, [fetchAll, isIdle]);
+
+  useEffect(() => {
+    if (!selectedCompany) return;
+    const updated = companies.find((company) => company.id === selectedCompany.id);
+    if (!updated) {
+      setSelectedCompany(null);
+      return;
+    }
+    if (updated !== selectedCompany) {
+      setSelectedCompany(updated);
+    }
+  }, [companies, selectedCompany?.id]);
+
+  useEffect(() => {
+    if (!selectedPartner) return;
+    const updated = partners.find((partner) => partner.id === selectedPartner.id);
+    if (!updated) {
+      setSelectedPartner(null);
+      return;
+    }
+    if (updated !== selectedPartner) {
+      setSelectedPartner(updated);
+    }
+  }, [partners, selectedPartner?.id]);
+
+  const globalError = errors.companies || errors.partners || errors.kanban;
+  const isLoading =
+    (status.companies === 'loading' || status.partners === 'loading' || status.kanban === 'loading') &&
+    companies.length === 0 &&
+    partners.length === 0;
 
   const renderDashboard = () => (
     <div className="p-6 space-y-6">
@@ -335,7 +319,7 @@ const WaterDistributionSystem = () => {
             Recebimento de Comprovantes
           </h3>
           <div className="space-y-3">
-            {kanbanData.filter(item => item.stage === 'recebimento').map(item => (
+            {kanbanColumns.recebimento.map(item => (
               <div key={item.company} className="bg-white p-3 rounded border">
                 <p className="font-medium">{item.company}</p>
                 <p className="text-sm text-gray-600">
@@ -358,7 +342,7 @@ const WaterDistributionSystem = () => {
             Relatório Preenchido
           </h3>
           <div className="space-y-3">
-            {kanbanData.filter(item => item.stage === 'relatorio').map(item => (
+            {kanbanColumns.relatorio.map(item => (
               <div key={item.company} className="bg-white p-3 rounded border">
                 <p className="font-medium">{item.company}</p>
                 <p className="text-sm text-gray-600">
@@ -381,7 +365,7 @@ const WaterDistributionSystem = () => {
             Nota Fiscal Pronta
           </h3>
           <div className="space-y-3">
-            {kanbanData.filter(item => item.stage === 'nota_fiscal').map(item => (
+            {kanbanColumns.nota_fiscal.map(item => (
               <div key={item.company} className="bg-white p-3 rounded border">
                 <p className="font-medium">{item.company}</p>
                 <p className="text-sm text-gray-600">
@@ -559,7 +543,7 @@ const WaterDistributionSystem = () => {
     const handleSubmit = (e) => {
       e.preventDefault();
       // Aqui você adicionaria a lógica para salvar os dados
-      console.log('Dados do formulário:', formData);
+      console.warn('Salvar formulário ainda não implementado:', formData);
       setShowForm(false);
       setFormData({});
     };
@@ -799,13 +783,28 @@ const WaterDistributionSystem = () => {
       </nav>
 
       <main className="flex-1">
-        {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'companies' && renderCompanies()}
-        {activeTab === 'partners' && renderPartners()}
-        {activeTab === 'kanban' && renderKanban()}
+        {globalError && (
+          <div className="mx-6 mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {globalError}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-24 text-gray-500">
+            Carregando dados do sistema...
+          </div>
+        ) : (
+          <>
+            {activeTab === 'dashboard' && renderDashboard()}
+            {activeTab === 'companies' && renderCompanies()}
+            {activeTab === 'partners' && renderPartners()}
+            {activeTab === 'kanban' && renderKanban()}
+          </>
+        )}
       </main>
 
       {selectedCompany && renderCompanyDetails()}
+      {selectedPartner && renderPartnerDetails()}
     </div>
   );
 };
