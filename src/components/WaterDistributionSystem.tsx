@@ -1,26 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useId, type FormEvent, type KeyboardEvent } from 'react';
-import {
-  Building,
-  Users,
-  FileText,
-  BarChart3,
-  CheckCircle,
-  Clock,
-  AlertCircle,
-  Plus,
-  MapPin,
-  Phone,
-  Mail,
-  Edit,
-  Trash2,
-  Eye,
-  Upload,
-  Loader2
-} from 'lucide-react';
+import { Building, Users, FileText, BarChart3, CheckCircle, Clock, Plus, MapPin, Phone, Mail, Upload, Loader2 } from 'lucide-react';
 import type { Company, Partner as PartnerType } from '../services/dataService';
 import { selectCompanies, selectKanbanColumns, selectPartners, useWaterDataStore } from '../store/useWaterDataStore';
 import { formatCurrency, formatEmail, formatPhone } from '../utils/formatters';
-import AccessibleModal from './AccessibleModal';
+import OverlayDialog from './ui/OverlayDialog';
+import StatCard from './dashboard/StatCard';
+import ToolbarTabs from './common/ToolbarTabs';
+import PartnerCard from './common/PartnerCard';
+import CompanyRow from './common/CompanyRow';
+import ProgressBar from './common/ProgressBar';
+import BadgeStatus from './common/BadgeStatus';
 
 type ActiveTab = 'dashboard' | 'companies' | 'partners' | 'kanban';
 type FormType = 'company' | 'partner';
@@ -259,6 +248,12 @@ const WaterDistributionSystem = () => {
   const renderDashboard = () => {
     const hasCombinedError = errors.companies || errors.partners;
     const showStatsSkeleton = showCompaniesSkeleton || showPartnersSkeleton;
+    const statCards = [
+      { label: 'Empresas Ativas', value: companies.length, icon: Building, tone: 'blue' as const },
+      { label: 'Parceiros Ativos', value: partners.length, icon: Users, tone: 'green' as const },
+      { label: 'Comprovantes Pendentes', value: pendingReceiptsCount, icon: Clock, tone: 'yellow' as const },
+      { label: 'Total de Lojas', value: totalStores, icon: BarChart3, tone: 'purple' as const }
+    ];
 
     return (
       <div className="p-6 space-y-6">
@@ -271,47 +266,9 @@ const WaterDistributionSystem = () => {
               </div>
             ))
           ) : (
-            <>
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-blue-600">Empresas Ativas</p>
-                    <p className="text-2xl font-bold text-blue-800">{companies.length}</p>
-                  </div>
-                  <Building className="text-blue-500" size={24} />
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-green-600">Parceiros Ativos</p>
-                    <p className="text-2xl font-bold text-green-800">{partners.length}</p>
-                  </div>
-                  <Users className="text-green-500" size={24} />
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-yellow-600">Comprovantes Pendentes</p>
-                    <p className="text-2xl font-bold text-yellow-800">{pendingReceiptsCount}</p>
-                  </div>
-                  <Clock className="text-yellow-500" size={24} />
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-purple-600">Total de Lojas</p>
-                    <p className="text-2xl font-bold text-purple-800">{totalStores}</p>
-                  </div>
-                  <BarChart3 className="text-purple-500" size={24} />
-                </div>
-              </div>
-            </>
+            statCards.map((card) => (
+              <StatCard key={card.label} {...card} />
+            ))
           )}
         </div>
 
@@ -339,28 +296,7 @@ const WaterDistributionSystem = () => {
             ) : (
               <div className="space-y-3">
                 {partners.map((partner) => (
-                  <div key={partner.id} className="flex items-center justify-between rounded bg-gray-50 p-3">
-                    <div>
-                      <p className="font-medium">{partner.name}</p>
-                      <p className="text-sm text-gray-600">{partner.region}</p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {partner.receiptsStatus === 'enviado' ? (
-                        <CheckCircle className="text-green-500" size={20} />
-                      ) : (
-                        <AlertCircle className="text-yellow-500" size={20} />
-                      )}
-                      <span
-                        className={`px-2 py-1 text-xs font-medium ${
-                          partner.receiptsStatus === 'enviado'
-                            ? 'rounded bg-green-100 text-green-800'
-                            : 'rounded bg-yellow-100 text-yellow-800'
-                        }`}
-                      >
-                        {partner.receiptsStatus === 'enviado' ? 'Enviado' : 'Pendente'}
-                      </span>
-                    </div>
-                  </div>
+                  <PartnerCard key={partner.id} partner={partner} />
                 ))}
               </div>
             )}
@@ -466,59 +402,14 @@ const WaterDistributionSystem = () => {
               ))
             ) : (
               companies.map((company) => (
-                <tr key={company.id}>
-                  <td className="px-6 py-4">
-                    <div>
-                      <p className="font-medium">{company.name}</p>
-                      <p className="text-sm text-gray-600">{company.contact.name}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{company.type}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{company.stores}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{formatCurrency(company.totalValue)}</td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs font-medium ${
-                        company.status === 'ativo'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {company.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex space-x-2" role="group" aria-label={`Ações disponíveis para ${company.name}`}>
-                      <button
-                        type="button"
-                        onClick={() => handleSelectCompany(company)}
-                        onKeyDown={handleActionKeyDown}
-                        className="text-blue-600 hover:text-blue-800"
-                        aria-label={`Ver detalhes da empresa ${company.name}`}
-                      >
-                        <Eye size={16} aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleEditCompany(company)}
-                        onKeyDown={handleActionKeyDown}
-                        className="text-green-600 hover:text-green-800"
-                        aria-label={`Editar empresa ${company.name}`}
-                      >
-                        <Edit size={16} aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteCompany(company)}
-                        onKeyDown={handleActionKeyDown}
-                        className="text-red-600 hover:text-red-800"
-                        aria-label={`Excluir empresa ${company.name}`}
-                      >
-                        <Trash2 size={16} aria-hidden="true" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                <CompanyRow
+                  key={company.id}
+                  company={company}
+                  onView={handleSelectCompany}
+                  onEdit={handleEditCompany}
+                  onDelete={handleDeleteCompany}
+                  onActionKeyDown={handleActionKeyDown}
+                />
               ))
             )}
             {isFetchingCompanies && companies.length > 0 && !errors.companies && (
@@ -575,13 +466,10 @@ const WaterDistributionSystem = () => {
             <div key={partner.id} className="rounded-lg border bg-white p-6">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold">{partner.name}</h3>
-                <div className="flex items-center space-x-2">
-                  {partner.receiptsStatus === 'enviado' ? (
-                    <CheckCircle className="text-green-500" size={20} />
-                  ) : (
-                    <AlertCircle className="text-yellow-500" size={20} />
-                  )}
-                </div>
+                <BadgeStatus
+                  label={partner.receiptsStatus === 'enviado' ? 'Comprovante enviado' : 'Comprovante pendente'}
+                  tone={partner.receiptsStatus === 'enviado' ? 'success' : 'warning'}
+                />
               </div>
 
               <div className="space-y-2 text-sm">
@@ -612,15 +500,10 @@ const WaterDistributionSystem = () => {
 
               <div className="mt-4 border-t pt-4">
                 <div className="flex items-center justify-between">
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs font-medium ${
-                      partner.receiptsStatus === 'enviado'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}
-                  >
-                    Comprovantes: {partner.receiptsStatus === 'enviado' ? 'Enviados' : 'Pendentes'}
-                  </span>
+                  <BadgeStatus
+                    label={`Comprovantes: ${partner.receiptsStatus === 'enviado' ? 'Enviados' : 'Pendentes'}`}
+                    tone={partner.receiptsStatus === 'enviado' ? 'success' : 'warning'}
+                  />
                   <button
                     onClick={() => handleSelectPartner(partner)}
                     className="text-sm font-medium text-blue-600 hover:text-blue-800"
@@ -649,9 +532,7 @@ const WaterDistributionSystem = () => {
         key: 'recebimento' as const,
         title: 'Recebimento de Comprovantes',
         icon: Upload,
-        containerClass: 'bg-blue-50',
-        titleClass: 'text-blue-800',
-        barClass: 'bg-blue-500',
+        tone: 'blue' as const,
         items: kanbanColumns.recebimento,
         progressLabel: 'comprovantes'
       },
@@ -659,9 +540,7 @@ const WaterDistributionSystem = () => {
         key: 'relatorio' as const,
         title: 'Relatório Preenchido',
         icon: FileText,
-        containerClass: 'bg-yellow-50',
-        titleClass: 'text-yellow-800',
-        barClass: 'bg-yellow-500',
+        tone: 'yellow' as const,
         items: kanbanColumns.relatorio,
         progressLabel: 'processados'
       },
@@ -669,13 +548,17 @@ const WaterDistributionSystem = () => {
         key: 'nota_fiscal' as const,
         title: 'Nota Fiscal Pronta',
         icon: CheckCircle,
-        containerClass: 'bg-green-50',
-        titleClass: 'text-green-800',
-        barClass: 'bg-green-500',
+        tone: 'green' as const,
         items: kanbanColumns.nota_fiscal,
         progressLabel: 'finalizados'
       }
     ];
+
+    const columnToneStyles = {
+      blue: { container: 'bg-blue-50', title: 'text-blue-800' },
+      yellow: { container: 'bg-yellow-50', title: 'text-yellow-800' },
+      green: { container: 'bg-green-50', title: 'text-green-800' }
+    } as const;
 
     return (
       <div className="p-6">
@@ -691,8 +574,8 @@ const WaterDistributionSystem = () => {
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             {columns.map((column) => (
-              <div key={column.key} className={`${column.containerClass} rounded-lg p-4`}>
-                <h3 className={`mb-4 flex items-center font-semibold ${column.titleClass}`}>
+              <div key={column.key} className={`${columnToneStyles[column.tone].container} rounded-lg p-4`}>
+                <h3 className={`mb-4 flex items-center font-semibold ${columnToneStyles[column.tone].title}`}>
                   <column.icon className="mr-2" size={20} />
                   {column.title}
                 </h3>
@@ -711,17 +594,7 @@ const WaterDistributionSystem = () => {
                           <p className="text-sm text-gray-600">
                             {item.receipts}/{item.total} {column.progressLabel}
                           </p>
-                          <div className="mt-2 h-2 w-full rounded-full bg-gray-200">
-                            <div
-                              className={`${column.barClass} h-2 rounded-full`}
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  item.total > 0 ? (item.receipts / item.total) * 100 : 0
-                                )}%`
-                              }}
-                            />
-                          </div>
+                          <ProgressBar value={item.receipts} total={item.total} tone={column.tone} />
                         </div>
                       ))}
                 </div>
@@ -737,7 +610,7 @@ const WaterDistributionSystem = () => {
     if (!selectedCompany) return null;
 
     return (
-      <AccessibleModal
+      <OverlayDialog
         isOpen={Boolean(selectedCompany)}
         onClose={() => setSelectedCompany(null)}
         titleId={companyDialogTitleId}
@@ -824,7 +697,7 @@ const WaterDistributionSystem = () => {
             </div>
           </div>
         </div>
-      </AccessibleModal>
+      </OverlayDialog>
     );
   };
 
@@ -832,7 +705,7 @@ const WaterDistributionSystem = () => {
     if (!selectedPartner) return null;
 
     return (
-      <AccessibleModal
+      <OverlayDialog
         isOpen={Boolean(selectedPartner)}
         onClose={() => setSelectedPartner(null)}
         titleId={partnerDialogTitleId}
@@ -913,20 +786,20 @@ const WaterDistributionSystem = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between rounded bg-white p-2">
                 <span className="text-sm">Novembro 2024</span>
-                <span className="rounded bg-green-100 px-2 py-1 text-xs text-green-800">Concluído</span>
+                <BadgeStatus label="Concluído" tone="success" pill={false} />
               </div>
               <div className="flex items-center justify-between rounded bg-white p-2">
                 <span className="text-sm">Outubro 2024</span>
-                <span className="rounded bg-green-100 px-2 py-1 text-xs text-green-800">Concluído</span>
+                <BadgeStatus label="Concluído" tone="success" pill={false} />
               </div>
               <div className="flex items-center justify-between rounded bg-white p-2">
                 <span className="text-sm">Setembro 2024</span>
-                <span className="rounded bg-yellow-100 px-2 py-1 text-xs text-yellow-800">Pendente</span>
+                <BadgeStatus label="Pendente" tone="warning" pill={false} />
               </div>
             </div>
           </div>
         </div>
-      </AccessibleModal>
+      </OverlayDialog>
     );
   };
 
@@ -950,12 +823,13 @@ const WaterDistributionSystem = () => {
     };
 
     return (
-      <AccessibleModal
+      <OverlayDialog
         isOpen={showForm}
         onClose={() => setShowForm(false)}
         titleId={formDialogTitleId}
         initialFocusRef={formInitialFieldRef}
         className="max-w-2xl"
+        variant="drawer"
       >
         <div className="border-b p-6">
           <div className="flex items-center justify-between">
@@ -1146,7 +1020,7 @@ const WaterDistributionSystem = () => {
               </button>
             </div>
           </form>
-      </AccessibleModal>
+      </OverlayDialog>
     );
   };
 
@@ -1162,22 +1036,7 @@ const WaterDistributionSystem = () => {
               <h1 className="text-xl font-bold text-gray-900">AquaDistrib Pro</h1>
             </div>
 
-            <div className="flex space-x-1">
-              {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => handleTabChange(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium ${
-                    activeTab === tab.id
-                      ? 'bg-blue-500 text-white'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
-                >
-                  <tab.icon size={18} />
-                  <span>{tab.label}</span>
-                </button>
-              ))}
-            </div>
+            <ToolbarTabs tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
           </div>
         </div>
       </nav>
