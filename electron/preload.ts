@@ -1,19 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-
-type CompanyPayload = {
-  id?: number;
-  name: string; type: string; stores: number; total_value: number; status: 'ativo'|'inativo';
-  contact_name: string; contact_phone: string; contact_email: string;
-};
-
-type PartnerPayload = {
-  id?: number;
-  name: string; region: string; cities_json: string;
-  contact_name: string; contact_phone: string; contact_email: string;
-  status: 'ativo'|'inativo'; receipts_status: 'enviado'|'pendente';
-};
-
-type KanbanPayload = { company: string; stage: 'recebimento'|'relatorio'|'nota_fiscal'; receipts: number; total: number };
+import type { CompanyPayload, KanbanPayload, PartnerPayload } from '../src/types/ipc';
 
 contextBridge.exposeInMainWorld('api', {
   companies: {
