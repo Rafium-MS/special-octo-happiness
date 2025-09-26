@@ -13,7 +13,8 @@ const EntityFormDialog = ({
   onSubmitCompany,
   onSubmitPartner,
   citySuggestions,
-  companyInitialValues
+  companyInitialValues,
+  partnerInitialValues
 }: DialogsViewModel['form']) => {
   if (!isOpen) return null;
 
@@ -22,7 +23,18 @@ const EntityFormDialog = ({
       ? mode === 'edit'
         ? 'Editar Empresa'
         : 'Nova Empresa'
-      : 'Novo Parceiro';
+      : mode === 'edit'
+        ? 'Editar Parceiro'
+        : 'Novo Parceiro';
+
+  const submitLabel =
+    type === 'company'
+      ? mode === 'edit'
+        ? 'Atualizar Empresa'
+        : 'Salvar Empresa'
+      : mode === 'edit'
+        ? 'Atualizar Parceiro'
+        : 'Salvar Parceiro';
 
   return (
     <OverlayDialog
@@ -55,7 +67,7 @@ const EntityFormDialog = ({
             onCancel={onClose}
             initialFocusRef={initialFocusRef}
             initialValues={companyInitialValues}
-            submitLabel={mode === 'edit' ? 'Atualizar Empresa' : 'Salvar Empresa'}
+            submitLabel={submitLabel}
           />
         ) : (
           <PartnerForm
@@ -63,6 +75,8 @@ const EntityFormDialog = ({
             onCancel={onClose}
             suggestions={citySuggestions}
             initialFocusRef={initialFocusRef}
+            initialValues={partnerInitialValues}
+            submitLabel={submitLabel}
           />
         )}
       </div>
