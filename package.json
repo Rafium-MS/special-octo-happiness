@@ -11,7 +11,10 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
-    "format:check": "prettier . --check"
+    "format:check": "prettier . --check",
+    "typecheck:web": "tsc --noEmit",
+    "typecheck:electron": "tsc -p electron/tsconfig.json --noEmit",
+    "typecheck": "npm run typecheck:web && npm run typecheck:electron"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

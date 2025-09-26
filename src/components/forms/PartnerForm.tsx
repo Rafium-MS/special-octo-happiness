@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, type MutableRefObject } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
@@ -32,7 +32,7 @@ type PartnerFormProps = {
   onSubmit: (values: PartnerFormValues) => Promise<void>;
   onCancel: () => void;
   suggestions: string[];
-  initialFocusRef?: React.RefObject<HTMLInputElement>;
+  initialFocusRef?: MutableRefObject<HTMLInputElement | null>;
 };
 
 const PartnerForm = ({ onSubmit, onCancel, suggestions, initialFocusRef }: PartnerFormProps) => {

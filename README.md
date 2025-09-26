@@ -41,3 +41,16 @@ npm ERR! gyp ERR! find VS Could not find any Visual Studio installation to use
 
 Following the steps above allows `npm install` to build `better-sqlite3`
 successfully, resolving the Visual Studio lookup error during installation.
+
+## Type checking
+
+Run the combined type-checking workflow across the renderer (Vite) and Electron
+processes with:
+
+```bash
+npm run typecheck
+```
+
+This command executes both `npm run typecheck:web` and `npm run typecheck:electron`
+to ensure TypeScript coverage for the entire application. Add it to your
+continuous integration workflow alongside linting to catch regressions early.
