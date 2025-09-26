@@ -6,6 +6,27 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'sha256-xhjkSSoP2uC3mAe4OUlU1PhABeO7bz3FQTfsd/44XKM='; img-src 'self' data:; font-src 'self' data:; connect-src 'self' http://localhost:5173 ws://localhost:5173"
     />
+    <script type="module">
+      if (import.meta.env.DEV) {
+        const meta = document.querySelector(
+          "meta[http-equiv='Content-Security-Policy']"
+        );
+
+        if (meta) {
+          meta.setAttribute(
+            'content',
+            [
+              "default-src 'self' http://localhost:5173 ws://localhost:5173 data: blob:",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:5173",
+              "style-src 'self' 'unsafe-inline' http://localhost:5173",
+              "img-src 'self' data: blob: http://localhost:5173",
+              "font-src 'self' data: http://localhost:5173",
+              "connect-src 'self' ws://localhost:5173 http://localhost:5173"
+            ].join('; ')
+          );
+        }
+      }
+    </script>
     <style id="base-style">#root{isolation:isolate;}</style>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AquaDistrib Pro</title>
