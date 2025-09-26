@@ -1374,7 +1374,7 @@ const WaterDistributionSystem = () => {
     <div className="min-h-screen bg-gray-100">
       <nav className="bg-white shadow-sm border-b">
         <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-blue-500 rounded-lg">
                 <Building className="text-white" size={24} />
@@ -1382,7 +1382,7 @@ const WaterDistributionSystem = () => {
               <h1 className="text-xl font-bold text-gray-900">AquaDistrib Pro</h1>
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-wrap items-center gap-3 md:flex-nowrap md:justify-end">
               <ToolbarTabs tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
               <ThemeToggle
                 preference={themePreference}

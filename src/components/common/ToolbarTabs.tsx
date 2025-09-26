@@ -8,13 +8,14 @@ type ToolbarTabsProps<T extends string> = {
 };
 
 const ToolbarTabs = <T extends string>({ tabs, activeTab, onTabChange }: ToolbarTabsProps<T>) => (
-  <div className="flex space-x-1">
+  <div className="flex flex-wrap gap-2 md:flex-nowrap">
     {tabs.map((tab) => (
       <button
         key={tab.id}
         onClick={() => onTabChange(tab.id)}
         className={cn(
-          'flex items-center space-x-2 rounded-lg px-4 py-2 font-medium transition-colors',
+          'flex min-w-[8rem] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+          'md:min-w-0 md:flex-none md:justify-start',
           activeTab === tab.id
             ? 'bg-blue-500 text-white shadow-sm'
             : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
