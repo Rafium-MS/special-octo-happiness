@@ -191,7 +191,7 @@ async function fetchFromApi<T>(fallback: T, loader: (api: WindowApi) => Promise<
   if (!window.api) return fallback;
   try {
     const result = await loader(window.api);
-    if (!result || (Array.isArray(result) && result.length === 0)) {
+    if (result === null || result === undefined) {
       return fallback;
     }
     return result;
