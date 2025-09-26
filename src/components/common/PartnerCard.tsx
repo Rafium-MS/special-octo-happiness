@@ -1,5 +1,5 @@
 import { AlertCircle, CheckCircle } from 'lucide-react';
-import type { Partner as PartnerType } from '../../services/dataService';
+import type { Partner as PartnerType } from '../../types/entities';
 import { cn } from '../../utils/cn';
 import BadgeStatus from './BadgeStatus';
 

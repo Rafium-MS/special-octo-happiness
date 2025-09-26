@@ -1,16 +1,7 @@
-import {
-  Company,
-  NormalizedEntities,
-  Partner,
-  KanbanItem,
-  NormalizedKanban,
-  createEmptyCompanies,
-  createEmptyPartners,
-  createEmptyKanban,
-  fetchCompanies,
-  fetchPartners,
-  fetchKanban
-} from '../services/dataService';
+import type { Company, KanbanItem, NormalizedEntities, NormalizedKanban, Partner } from '../types/entities';
+import { companyRepository } from '../repositories/companyRepository';
+import { kanbanRepository } from '../repositories/kanbanRepository';
+import { partnerRepository } from '../repositories/partnerRepository';
 import { RECEIPT_STAGES, type ReceiptStage } from '../types/entities';
 import { createStore } from './createStore';
 
@@ -69,9 +60,9 @@ function setError(
 }
 
 export const useWaterDataStore = createStore<WaterDataState>((set, get) => ({
-  companies: createEmptyCompanies(),
-  partners: createEmptyPartners(),
-  kanban: createEmptyKanban(),
+  companies: companyRepository.createEmpty(),
+  partners: partnerRepository.createEmpty(),
+  kanban: kanbanRepository.createEmpty(),
   status: {
     companies: 'idle',
     partners: 'idle',
@@ -85,7 +76,7 @@ export const useWaterDataStore = createStore<WaterDataState>((set, get) => ({
   async fetchCompanies() {
     set((state) => setLoading(state, 'companies'));
     try {
-      const companies = await fetchCompanies();
+      const companies = await companyRepository.list();
       set((state) => setSuccess(state, 'companies', { companies }));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível carregar as empresas.';
@@ -95,7 +86,7 @@ export const useWaterDataStore = createStore<WaterDataState>((set, get) => ({
   async fetchPartners() {
     set((state) => setLoading(state, 'partners'));
     try {
-      const partners = await fetchPartners();
+      const partners = await partnerRepository.list();
       set((state) => setSuccess(state, 'partners', { partners }));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível carregar os parceiros.';
@@ -105,7 +96,7 @@ export const useWaterDataStore = createStore<WaterDataState>((set, get) => ({
   async fetchKanban() {
     set((state) => setLoading(state, 'kanban'));
     try {
-      const kanban = await fetchKanban();
+      const kanban = await kanbanRepository.list();
       set((state) => setSuccess(state, 'kanban', { kanban }));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível carregar o pipeline.';
