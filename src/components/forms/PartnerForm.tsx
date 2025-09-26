@@ -33,9 +33,29 @@ type PartnerFormProps = {
   onCancel: () => void;
   suggestions: string[];
   initialFocusRef?: MutableRefObject<HTMLInputElement | null>;
+  initialValues?: PartnerFormValues | null;
+  submitLabel?: string;
 };
 
-const PartnerForm = ({ onSubmit, onCancel, suggestions, initialFocusRef }: PartnerFormProps) => {
+const DEFAULT_VALUES: PartnerFormValues = {
+  name: '',
+  region: '',
+  status: 'ativo',
+  receiptsStatus: 'pendente',
+  contactName: '',
+  contactPhone: '',
+  contactEmail: '',
+  cities: [],
+};
+
+const PartnerForm = ({
+  onSubmit,
+  onCancel,
+  suggestions,
+  initialFocusRef,
+  initialValues,
+  submitLabel = 'Salvar Parceiro'
+}: PartnerFormProps) => {
   const {
     control,
     register,
@@ -45,33 +65,17 @@ const PartnerForm = ({ onSubmit, onCancel, suggestions, initialFocusRef }: Partn
     formState: { errors, isSubmitting },
   } = useForm<PartnerFormValues>({
     resolver: zodResolver(partnerSchema),
-    defaultValues: {
-      name: '',
-      region: '',
-      status: 'ativo',
-      receiptsStatus: 'pendente',
-      contactName: '',
-      contactPhone: '',
-      contactEmail: '',
-      cities: [],
-    },
+    defaultValues: initialValues ?? DEFAULT_VALUES,
   });
 
-  useEffect(() => () => reset(), [reset]);
+  useEffect(() => {
+    reset(initialValues ?? DEFAULT_VALUES);
+  }, [initialValues, reset]);
 
   const onFormSubmit = handleSubmit(async (values) => {
     try {
       await onSubmit(values);
-      reset({
-        name: '',
-        region: '',
-        status: 'ativo',
-        receiptsStatus: 'pendente',
-        contactName: '',
-        contactPhone: '',
-        contactEmail: '',
-        cities: [],
-      });
+      reset(initialValues ? values : DEFAULT_VALUES);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível salvar o parceiro.';
       setError('root', { type: 'manual', message });
@@ -274,7 +278,7 @@ const PartnerForm = ({ onSubmit, onCancel, suggestions, initialFocusRef }: Partn
           className="inline-flex items-center gap-2 rounded-lg bg-green-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-green-400"
         >
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-          Salvar Parceiro
+          {submitLabel}
         </button>
       </div>
     </form>

@@ -65,17 +65,13 @@ const CompanyForm = ({
   });
 
   useEffect(() => {
-    return () => reset(DEFAULT_VALUES);
-  }, [reset]);
-
-  useEffect(() => {
     reset(initialValues ?? DEFAULT_VALUES);
   }, [initialValues, reset]);
 
   const onFormSubmit = handleSubmit(async (values) => {
     try {
       await onSubmit(values);
-      reset(initialValues ?? DEFAULT_VALUES);
+      reset(initialValues ? values : DEFAULT_VALUES);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível salvar a empresa.';
       setError('root', { type: 'manual', message });

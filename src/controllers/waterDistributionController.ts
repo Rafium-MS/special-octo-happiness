@@ -157,6 +157,7 @@ export type DialogsViewModel = {
     citySuggestions: string[];
     company: Company | null;
     companyInitialValues: CompanyFormValues | null;
+    partnerInitialValues: PartnerFormValues | null;
   };
 };
 
@@ -802,7 +803,7 @@ export const useWaterDistributionController = (): WaterDistributionController =>
     form: {
       isOpen: showForm,
       type: formType,
-      mode: editingCompany ? 'edit' : 'create',
+      mode: formType === 'company' && editingCompany ? 'edit' : 'create',
       titleId: formDialogTitleId,
       initialFocusRef: formInitialFieldRef,
       onClose: handleCloseForm,
@@ -810,7 +811,8 @@ export const useWaterDistributionController = (): WaterDistributionController =>
       onSubmitPartner: handlePartnerFormSubmit,
       citySuggestions,
       company: editingCompany,
-      companyInitialValues: companyFormInitialValues
+      companyInitialValues: formType === 'company' ? companyFormInitialValues : null,
+      partnerInitialValues: null
     }
   };
 
