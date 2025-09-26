@@ -46,6 +46,7 @@ type WaterDataState = {
   fetchAll: () => Promise<void>;
   createCompany: (input: CompanyInput) => Promise<Company>;
   updateCompany: (id: number, input: CompanyInput) => Promise<Company>;
+  deleteCompany: (id: number) => Promise<void>;
   createPartner: (input: PartnerInput) => Promise<Partner>;
   updatePartner: (id: number, input: PartnerInput) => Promise<Partner>;
   moveKanbanItem: (key: string, nextStage: ReceiptStage) => Promise<KanbanItem>;
@@ -222,6 +223,29 @@ export const useWaterDataStore = createStore<WaterDataState>((set, get) => ({
     }));
 
     return company;
+  },
+  async deleteCompany(id) {
+    const existing = get().companies.byId[id];
+    if (!existing) {
+      throw new Error('Empresa não encontrada.');
+    }
+
+    if (window.api?.companies?.delete) {
+      const response = await window.api.companies.delete(id);
+      if (!response || response.ok !== true) {
+        throw new Error('Não foi possível excluir a empresa.');
+      }
+    }
+
+    set((current) => {
+      const { [id]: _removed, ...remaining } = current.companies.byId;
+      return {
+        companies: {
+          byId: remaining,
+          allIds: current.companies.allIds.filter((companyId) => companyId !== id)
+        }
+      };
+    });
   },
   async createPartner(input) {
     const payload = {

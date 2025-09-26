@@ -31,9 +31,28 @@ type CompanyFormProps = {
   onSubmit: (values: CompanyFormValues) => Promise<void>;
   onCancel: () => void;
   initialFocusRef?: MutableRefObject<HTMLInputElement | null>;
+  initialValues?: CompanyFormValues | null;
+  submitLabel?: string;
 };
 
-const CompanyForm = ({ onSubmit, onCancel, initialFocusRef }: CompanyFormProps) => {
+const DEFAULT_VALUES: CompanyFormValues = {
+  name: '',
+  type: '',
+  stores: 0,
+  totalValue: 0,
+  status: 'ativo',
+  contactName: '',
+  contactPhone: '',
+  contactEmail: ''
+};
+
+const CompanyForm = ({
+  onSubmit,
+  onCancel,
+  initialFocusRef,
+  initialValues,
+  submitLabel = 'Salvar Empresa'
+}: CompanyFormProps) => {
   const {
     register,
     handleSubmit,
@@ -42,35 +61,21 @@ const CompanyForm = ({ onSubmit, onCancel, initialFocusRef }: CompanyFormProps) 
     formState: { errors, isSubmitting },
   } = useForm<CompanyFormValues>({
     resolver: zodResolver(companySchema),
-    defaultValues: {
-      name: '',
-      type: '',
-      stores: 0,
-      totalValue: 0,
-      status: 'ativo',
-      contactName: '',
-      contactPhone: '',
-      contactEmail: '',
-    },
+    defaultValues: initialValues ?? DEFAULT_VALUES,
   });
 
   useEffect(() => {
-    return () => reset();
+    return () => reset(DEFAULT_VALUES);
   }, [reset]);
+
+  useEffect(() => {
+    reset(initialValues ?? DEFAULT_VALUES);
+  }, [initialValues, reset]);
 
   const onFormSubmit = handleSubmit(async (values) => {
     try {
       await onSubmit(values);
-      reset({
-        name: '',
-        type: '',
-        stores: 0,
-        totalValue: 0,
-        status: 'ativo',
-        contactName: '',
-        contactPhone: '',
-        contactEmail: '',
-      });
+      reset(initialValues ?? DEFAULT_VALUES);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível salvar a empresa.';
       setError('root', { type: 'manual', message });
@@ -254,7 +259,7 @@ const CompanyForm = ({ onSubmit, onCancel, initialFocusRef }: CompanyFormProps) 
           className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-blue-400"
         >
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-          Salvar Empresa
+          {submitLabel}
         </button>
       </div>
     </form>
