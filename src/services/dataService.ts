@@ -26,6 +26,14 @@ const fallbackCompanies: RawCompany[] = [
     name: 'ANIMALE',
     type: 'Moda Feminina',
     stores: 89,
+    stores_by_state_json: JSON.stringify({
+      SP: 25,
+      RJ: 18,
+      MG: 15,
+      PR: 10,
+      RS: 8,
+      Outros: 13,
+    }),
     total_value: 15420.5,
     status: 'ativo',
     contact_name: 'Maria Silva',
@@ -37,6 +45,7 @@ const fallbackCompanies: RawCompany[] = [
     name: 'AREZZO',
     type: 'Calçados e Acessórios',
     stores: 14,
+    stores_by_state_json: null,
     total_value: 8350.75,
     status: 'ativo',
     contact_name: 'João Santos',
@@ -48,6 +57,13 @@ const fallbackCompanies: RawCompany[] = [
     name: 'BAGAGGIO',
     type: 'Artefatos de Couro',
     stores: 29,
+    stores_by_state_json: JSON.stringify({
+      SP: 12,
+      RJ: 7,
+      MG: 4,
+      ES: 3,
+      Outros: 3,
+    }),
     total_value: 12200.25,
     status: 'ativo',
     contact_name: 'Ana Costa',
@@ -104,12 +120,41 @@ function ensureValue<T>(value: T | null | undefined, fallback: T): T {
   return value ?? fallback;
 }
 
+function parseStoresByState(raw: string | null): Record<string, number> | null {
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === 'object') {
+      const entries = Object.entries(parsed as Record<string, unknown>).reduce<Record<string, number>>(
+        (acc, [state, value]) => {
+          const numericValue = typeof value === 'number' ? value : Number(value);
+          if (Number.isFinite(numericValue)) {
+            acc[state] = Math.trunc(numericValue);
+          }
+          return acc;
+        },
+        {}
+      );
+
+      return Object.keys(entries).length > 0 ? entries : null;
+    }
+  } catch {
+    // ignore malformed JSON
+  }
+
+  return null;
+}
+
 function adaptCompany(raw: RawCompany): Company {
   return {
     id: raw.id,
     name: raw.name,
     type: ensureValue(raw.type, ''),
     stores: ensureValue(raw.stores, 0),
+    storesByState: parseStoresByState(raw.stores_by_state_json),
     totalValue: Number(ensureValue(raw.total_value, 0)),
     status: ensureValue(raw.status, 'ativo'),
     contact: {

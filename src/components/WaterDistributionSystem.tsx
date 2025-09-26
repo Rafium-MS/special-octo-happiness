@@ -473,6 +473,7 @@ const WaterDistributionSystem = () => {
           name: values.name,
           type: values.type,
           stores: values.stores,
+          storesByState: null,
           totalValue: values.totalValue,
           status: values.status,
           contact: {
@@ -1127,6 +1128,19 @@ const WaterDistributionSystem = () => {
   const renderCompanyDetails = () => {
     if (!selectedCompany) return null;
 
+    const storeEntries = selectedCompany.storesByState
+      ? Object.entries(selectedCompany.storesByState).filter(([, value]) => value > 0)
+      : [];
+    const hasStoreData = storeEntries.length > 0;
+    const stateColorClasses = [
+      'text-blue-600',
+      'text-green-600',
+      'text-purple-600',
+      'text-orange-600',
+      'text-teal-600',
+      'text-rose-600',
+    ];
+
     return (
       <OverlayDialog
         isOpen={Boolean(selectedCompany)}
@@ -1193,26 +1207,23 @@ const WaterDistributionSystem = () => {
 
           <div>
             <h3 className="mb-3 text-lg font-semibold">Lojas por Estado</h3>
-            <div className="rounded-lg bg-gray-50 p-4">
-              <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
-                <div className="text-center">
-                  <p className="text-lg font-medium text-blue-600">25</p>
-                  <p className="text-gray-600">São Paulo</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-medium text-green-600">18</p>
-                  <p className="text-gray-600">Rio de Janeiro</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-medium text-purple-600">15</p>
-                  <p className="text-gray-600">Minas Gerais</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-medium text-orange-600">31</p>
-                  <p className="text-gray-600">Outros Estados</p>
+            {hasStoreData ? (
+              <div className="rounded-lg bg-gray-50 p-4">
+                <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+                  {storeEntries.map(([state, count], index) => {
+                    const colorClass = stateColorClasses[index % stateColorClasses.length];
+                    return (
+                      <div key={state} className="text-center">
+                        <p className={`text-lg font-medium ${colorClass}`}>{count}</p>
+                        <p className="text-gray-600">{state}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
+            ) : (
+              <p className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600">Dados indisponíveis.</p>
+            )}
           </div>
         </div>
       </OverlayDialog>

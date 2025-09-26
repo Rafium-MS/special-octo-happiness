@@ -5,6 +5,7 @@ export type RawCompany = {
   name: string;
   type: string | null;
   stores: number | null;
+  stores_by_state_json: string | null;
   total_value: number | null;
   status: Status | null;
   contact_name: string | null;

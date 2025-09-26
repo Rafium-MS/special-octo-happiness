@@ -18,6 +18,7 @@ export type Company = {
   name: string;
   type: string;
   stores: number;
+  storesByState: Record<string, number> | null;
   totalValue: number;
   status: Status;
   contact: Contact;
