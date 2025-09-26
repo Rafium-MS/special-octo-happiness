@@ -6,16 +6,23 @@ import type { DialogsViewModel } from '../../controllers/waterDistributionContro
 const EntityFormDialog = ({
   isOpen,
   type,
+  mode,
   titleId,
   initialFocusRef,
   onClose,
   onSubmitCompany,
   onSubmitPartner,
-  citySuggestions
+  citySuggestions,
+  companyInitialValues
 }: DialogsViewModel['form']) => {
   if (!isOpen) return null;
 
-  const title = type === 'company' ? 'Nova Empresa' : 'Novo Parceiro';
+  const title =
+    type === 'company'
+      ? mode === 'edit'
+        ? 'Editar Empresa'
+        : 'Nova Empresa'
+      : 'Novo Parceiro';
 
   return (
     <OverlayDialog
@@ -43,7 +50,13 @@ const EntityFormDialog = ({
       </div>
       <div className="p-6">
         {type === 'company' ? (
-          <CompanyForm onSubmit={onSubmitCompany} onCancel={onClose} initialFocusRef={initialFocusRef} />
+          <CompanyForm
+            onSubmit={onSubmitCompany}
+            onCancel={onClose}
+            initialFocusRef={initialFocusRef}
+            initialValues={companyInitialValues}
+            submitLabel={mode === 'edit' ? 'Atualizar Empresa' : 'Salvar Empresa'}
+          />
         ) : (
           <PartnerForm
             onSubmit={onSubmitPartner}

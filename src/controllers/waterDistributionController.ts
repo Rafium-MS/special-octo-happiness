@@ -148,12 +148,15 @@ export type DialogsViewModel = {
   form: {
     isOpen: boolean;
     type: 'company' | 'partner';
+    mode: 'create' | 'edit';
     titleId: string;
     initialFocusRef: React.RefObject<HTMLInputElement>;
     onClose: () => void;
     onSubmitCompany: (values: CompanyFormValues) => Promise<void>;
     onSubmitPartner: (values: PartnerFormValues) => Promise<void>;
     citySuggestions: string[];
+    company: Company | null;
+    companyInitialValues: CompanyFormValues | null;
   };
 };
 
@@ -190,21 +193,25 @@ export const useWaterDistributionController = (): WaterDistributionController =>
   );
   const { fetchAll, status, errors } = useWaterDataStore(metaSelector);
 
-  const { createCompany, createPartner, moveKanbanItem } = useWaterDataStore(
-    useCallback(
-      (state: ReturnType<typeof useWaterDataStore.getState>) => ({
-        createCompany: state.createCompany,
-        createPartner: state.createPartner,
-        moveKanbanItem: state.moveKanbanItem
-      }),
-      []
-    )
-  );
+  const { createCompany, updateCompany, deleteCompany, createPartner, moveKanbanItem } =
+    useWaterDataStore(
+      useCallback(
+        (state: ReturnType<typeof useWaterDataStore.getState>) => ({
+          createCompany: state.createCompany,
+          updateCompany: state.updateCompany,
+          deleteCompany: state.deleteCompany,
+          createPartner: state.createPartner,
+          moveKanbanItem: state.moveKanbanItem
+        }),
+        []
+      )
+    );
 
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [selectedPartner, setSelectedPartner] = useState<PartnerType | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState<'company' | 'partner'>('company');
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('all');
@@ -272,6 +279,19 @@ export const useWaterDistributionController = (): WaterDistributionController =>
       setSelectedCompany(updated);
     }
   }, [companies, selectedCompany?.id, selectedCompany]);
+
+  useEffect(() => {
+    if (!editingCompany) return;
+    const updated = companies.find((company) => company.id === editingCompany.id);
+    if (!updated) {
+      setEditingCompany(null);
+      setShowForm(false);
+      return;
+    }
+    if (updated !== editingCompany) {
+      setEditingCompany(updated);
+    }
+  }, [companies, editingCompany]);
 
   useEffect(() => {
     if (!selectedPartner) return;
@@ -482,22 +502,46 @@ export const useWaterDistributionController = (): WaterDistributionController =>
   }, [partners]);
 
   const handleOpenCompanyForm = useCallback(() => {
+    setEditingCompany(null);
     setShowForm(true);
     setFormType('company');
   }, []);
 
   const handleOpenPartnerForm = useCallback(() => {
+    setEditingCompany(null);
     setShowForm(true);
     setFormType('partner');
   }, []);
 
   const handleCloseForm = useCallback(() => {
     setShowForm(false);
+    setEditingCompany(null);
   }, []);
 
   const handleCompanyFormSubmit = useCallback(
     async (values: CompanyFormValues) => {
       try {
+        if (editingCompany) {
+          const company = await updateCompany(editingCompany.id, {
+            name: values.name,
+            type: values.type,
+            stores: values.stores,
+            totalValue: values.totalValue,
+            status: values.status,
+            contact: {
+              name: values.contactName,
+              phone: values.contactPhone,
+              email: values.contactEmail
+            }
+          });
+
+          showToast(`Empresa ${company.name} atualizada com sucesso.`, 'success');
+          setEditingCompany(null);
+          setShowForm(false);
+          setSelectedCompany((previous) => (previous?.id === company.id ? company : previous));
+          return;
+        }
+
         const company = await createCompany({
           name: values.name,
           type: values.type,
@@ -514,13 +558,13 @@ export const useWaterDistributionController = (): WaterDistributionController =>
         showToast(`Empresa ${company.name} cadastrada com sucesso.`, 'success');
         setShowForm(false);
       } catch (error) {
-        console.error('[WaterDistributionController] Falha ao criar empresa', error);
+        console.error('[WaterDistributionController] Falha ao salvar empresa', error);
         const message =
           error instanceof Error ? error.message : 'Não foi possível salvar a empresa.';
         throw new Error(message);
       }
     },
-    [createCompany, showToast]
+    [createCompany, updateCompany, editingCompany, showToast]
   );
 
   const handlePartnerFormSubmit = useCallback(
@@ -555,20 +599,28 @@ export const useWaterDistributionController = (): WaterDistributionController =>
     setSelectedCompany(company);
   }, []);
 
-  const handleEditCompany = useCallback(
-    (company: Company) => {
-      console.warn('Editar empresa ainda não persiste dados', company);
-      showToast(`Empresa ${company.name} atualizada com sucesso.`, 'success');
-    },
-    [showToast]
-  );
+  const handleEditCompany = useCallback((company: Company) => {
+    setEditingCompany(company);
+    setFormType('company');
+    setShowForm(true);
+  }, []);
 
   const handleDeleteCompany = useCallback(
-    (company: Company) => {
-      console.warn('Excluir empresa ainda não remove dados', company);
-      showToast(`Empresa ${company.name} excluída.`, 'info');
+    async (company: Company) => {
+      try {
+        await deleteCompany(company.id);
+        showToast(`Empresa ${company.name} excluída.`, 'info');
+        setSelectedCompany((previous) => (previous?.id === company.id ? null : previous));
+        setEditingCompany((previous) => (previous?.id === company.id ? null : previous));
+        setShowForm(false);
+      } catch (error) {
+        console.error('[WaterDistributionController] Falha ao excluir empresa', error);
+        const message =
+          error instanceof Error ? error.message : 'Não foi possível excluir a empresa.';
+        showToast(message, 'error');
+      }
     },
-    [showToast]
+    [deleteCompany, showToast]
   );
 
   const handleSelectPartner = useCallback((partner: PartnerType) => {
@@ -720,6 +772,20 @@ export const useWaterDistributionController = (): WaterDistributionController =>
     onViewHistory: handleViewHistory
   };
 
+  const companyFormInitialValues = useMemo(() => {
+    if (!editingCompany) return null;
+    return {
+      name: editingCompany.name,
+      type: editingCompany.type,
+      stores: editingCompany.stores,
+      totalValue: editingCompany.totalValue,
+      status: editingCompany.status,
+      contactName: editingCompany.contact.name,
+      contactPhone: editingCompany.contact.phone,
+      contactEmail: editingCompany.contact.email
+    } satisfies CompanyFormValues;
+  }, [editingCompany]);
+
   const dialogs: DialogsViewModel = {
     company: {
       selected: selectedCompany,
@@ -736,12 +802,15 @@ export const useWaterDistributionController = (): WaterDistributionController =>
     form: {
       isOpen: showForm,
       type: formType,
+      mode: editingCompany ? 'edit' : 'create',
       titleId: formDialogTitleId,
       initialFocusRef: formInitialFieldRef,
       onClose: handleCloseForm,
       onSubmitCompany: handleCompanyFormSubmit,
       onSubmitPartner: handlePartnerFormSubmit,
-      citySuggestions
+      citySuggestions,
+      company: editingCompany,
+      companyInitialValues: companyFormInitialValues
     }
   };
 
