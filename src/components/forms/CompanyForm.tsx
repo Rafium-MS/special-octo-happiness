@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type MutableRefObject } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
@@ -30,7 +30,7 @@ export type CompanyFormValues = z.infer<typeof companySchema>;
 type CompanyFormProps = {
   onSubmit: (values: CompanyFormValues) => Promise<void>;
   onCancel: () => void;
-  initialFocusRef?: React.RefObject<HTMLInputElement>;
+  initialFocusRef?: MutableRefObject<HTMLInputElement | null>;
 };
 
 const CompanyForm = ({ onSubmit, onCancel, initialFocusRef }: CompanyFormProps) => {
