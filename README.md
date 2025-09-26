@@ -54,3 +54,24 @@ npm run typecheck
 This command executes both `npm run typecheck:web` and `npm run typecheck:electron`
 to ensure TypeScript coverage for the entire application. Add it to your
 continuous integration workflow alongside linting to catch regressions early.
+
+## End-to-end testing
+
+Playwright drives the browser to exercise the renderer. Before running the
+suite for the first time install the required browser binaries:
+
+```bash
+npx playwright install
+```
+
+Execute the end-to-end scenarios with:
+
+```bash
+npm run test:e2e
+```
+
+To iterate locally with the inspector UI use:
+
+```bash
+npm run test:e2e:ui
+```

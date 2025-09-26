@@ -710,6 +710,7 @@ const WaterDistributionSystem = () => {
         <button
           onClick={handleOpenCompanyForm}
           className="flex items-center space-x-2 rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+          data-testid="add-company-button"
         >
           <Plus size={20} />
           <span>Nova Empresa</span>
@@ -1432,6 +1433,7 @@ const WaterDistributionSystem = () => {
             <div
               key={toast.id}
               className={`rounded-lg border p-4 shadow-md transition ${toastToneStyles[toast.tone]}`}
+              data-testid="toast-message"
             >
               <div className="flex items-start justify-between">
                 <span className="text-sm font-medium">{toast.message}</span>
