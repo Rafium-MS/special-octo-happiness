@@ -278,3 +278,5 @@ export function createEmptyKanban(): NormalizedKanban {
     byStage: createEmptyStageMap(),
   };
 }
+
+export { adaptCompany, adaptPartner, adaptKanbanItem, normalizeEntities, fetchFromApi };
