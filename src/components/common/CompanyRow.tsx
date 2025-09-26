@@ -1,6 +1,6 @@
 import { Edit, Eye, Trash2 } from 'lucide-react';
 import type { KeyboardEvent } from 'react';
-import type { Company } from '../../services/dataService';
+import type { Company } from '../../types/entities';
 import { formatCurrency } from '../../utils/formatters';
 import BadgeStatus from './BadgeStatus';
 
