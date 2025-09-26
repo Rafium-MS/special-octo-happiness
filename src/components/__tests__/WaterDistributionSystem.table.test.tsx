@@ -2,12 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import userEvent from '@testing-library/user-event';
-import type {
-  Company,
-  NormalizedEntities,
-  NormalizedKanban,
-  Partner
-} from '../../services/dataService';
+import type { Company, NormalizedEntities, NormalizedKanban, Partner } from '../../types/entities';
 
 vi.mock('../../hooks/useThemePreference', () => ({
   useThemePreference: () => ({

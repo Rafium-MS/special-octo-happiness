@@ -12,7 +12,7 @@ import type {
   KanbanViewModel,
   PartnersViewModel
 } from '../../controllers/waterDistributionController';
-import type { Company, Partner } from '../../services/dataService';
+import type { Company, Partner } from '../../types/entities';
 import type { KanbanItem } from '../../types/entities';
 
 const sampleCompany: Company = {

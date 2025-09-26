@@ -1,23 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import type { RawCompany, RawKanbanItem, RawPartner } from '../../../types/ipc';
 import {
   adaptCompany,
   adaptKanbanItem,
   adaptPartner,
-  fetchFromApi,
+  createEmptyEntities,
+  createEmptyKanban,
   normalizeEntities,
-  type Company,
-  type KanbanItem,
-  type Partner
-} from '../dataService';
-import type { RawCompany, RawKanbanItem, RawPartner, WindowApi } from '../../types/ipc';
+  normalizeKanban,
+} from '../index';
 
-declare global {
-  interface Window {
-    api?: WindowApi;
-  }
-}
-
-describe('dataService adapters', () => {
+describe('entity mappers', () => {
   it('adapts companies including stores by state and fallbacks', () => {
     const raw: RawCompany = {
       id: 1,
@@ -29,11 +22,11 @@ describe('dataService adapters', () => {
       status: null,
       contact_name: null,
       contact_phone: undefined,
-      contact_email: undefined
+      contact_email: undefined,
     };
 
     const company = adaptCompany(raw);
-    expect(company).toMatchObject<Partial<Company>>({
+    expect(company).toMatchObject({
       id: 1,
       name: 'ACME',
       type: '',
@@ -41,7 +34,7 @@ describe('dataService adapters', () => {
       storesByState: { SP: 5, RJ: 7 },
       totalValue: 1200.5,
       status: 'ativo',
-      contact: { name: '', phone: '', email: '' }
+      contact: { name: '', phone: '', email: '' },
     });
   });
 
@@ -56,7 +49,7 @@ describe('dataService adapters', () => {
       status: 'inativo',
       contact_name: 'Contato',
       contact_phone: '123',
-      contact_email: 'mail@example.com'
+      contact_email: 'mail@example.com',
     };
 
     expect(adaptCompany(raw).storesByState).toBeNull();
@@ -72,16 +65,16 @@ describe('dataService adapters', () => {
       contact_phone: undefined,
       contact_email: undefined,
       status: null,
-      receipts_status: null
+      receipts_status: null,
     };
 
     const partner = adaptPartner(raw);
-    expect(partner).toMatchObject<Partial<Partner>>({
+    expect(partner).toMatchObject({
       id: 1,
       region: '',
       cities: ['A', 'B'],
       status: 'ativo',
-      receiptsStatus: 'pendente'
+      receiptsStatus: 'pendente',
     });
   });
 
@@ -95,7 +88,7 @@ describe('dataService adapters', () => {
       contact_phone: '123',
       contact_email: 'ana@example.com',
       status: 'ativo',
-      receipts_status: 'enviado'
+      receipts_status: 'enviado',
     };
 
     expect(adaptPartner(raw).cities).toEqual([]);
@@ -104,12 +97,12 @@ describe('dataService adapters', () => {
   it('creates kanban items with composite keys', () => {
     const raw: RawKanbanItem = { company: 'ACME', stage: 'recebimento', receipts: 5, total: 10 };
     const item = adaptKanbanItem(raw);
-    expect(item).toEqual<KanbanItem>({
+    expect(item).toEqual({
       key: 'ACME:recebimento',
       company: 'ACME',
       stage: 'recebimento',
       receipts: 5,
-      total: 10
+      total: 10,
     });
   });
 });
@@ -118,56 +111,40 @@ describe('normalizeEntities', () => {
   it('normalizes entity arrays by id', () => {
     const items = [
       { id: 2, value: 'b' },
-      { id: 1, value: 'a' }
+      { id: 1, value: 'a' },
     ];
 
     const normalized = normalizeEntities(items);
     expect(normalized.allIds).toEqual([2, 1]);
     expect(normalized.byId[1]).toEqual({ id: 1, value: 'a' });
   });
+
+  it('creates empty normalized entities', () => {
+    expect(createEmptyEntities<{ id: number }>()).toEqual({ byId: {}, allIds: [] });
+  });
 });
 
-describe('fetchFromApi', () => {
-  const originalApi = window.api;
+describe('normalizeKanban', () => {
+  it('normalizes kanban items by stage and key', () => {
+    const items = [
+      { key: 'A:recebimento', company: 'A', stage: 'recebimento', receipts: 1, total: 2 },
+      { key: 'A:relatorio', company: 'A', stage: 'relatorio', receipts: 2, total: 3 },
+    ];
 
-  beforeEach(() => {
-    window.api = undefined;
+    const normalized = normalizeKanban(items);
+    expect(normalized.items['A:recebimento']).toEqual(items[0]);
+    expect(normalized.byStage.recebimento).toEqual(['A:recebimento']);
   });
 
-  afterEach(() => {
-    window.api = originalApi;
-    vi.restoreAllMocks();
-  });
-
-  it('returns fallback when api is unavailable', async () => {
-    const fallback = ['fallback'];
-    const result = await fetchFromApi(fallback, async () => ['remote']);
-    expect(result).toBe(fallback);
-  });
-
-  it('returns fetched data when available', async () => {
-    const fallback = ['fallback'];
-    const loader = vi.fn().mockResolvedValue(['remote']);
-    window.api = { companies: { list: vi.fn() } } as unknown as WindowApi;
-
-    const result = await fetchFromApi(fallback, loader);
-    expect(result).toEqual(['remote']);
-    expect(loader).toHaveBeenCalledWith(window.api);
-  });
-
-  it('falls back when loader resolves to null or throws', async () => {
-    const fallback = ['fallback'];
-    const loader = vi.fn().mockResolvedValue(null);
-    window.api = {} as WindowApi;
-
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    const nullResult = await fetchFromApi(fallback, loader);
-    expect(nullResult).toBe(fallback);
-
-    loader.mockRejectedValueOnce(new Error('boom'));
-    const errorResult = await fetchFromApi(fallback, loader);
-    expect(errorResult).toBe(fallback);
-    expect(warnSpy).toHaveBeenCalled();
+  it('creates empty kanban structures', () => {
+    const empty = createEmptyKanban();
+    expect(empty).toEqual({
+      items: {},
+      byStage: {
+        recebimento: [],
+        relatorio: [],
+        nota_fiscal: [],
+      },
+    });
   });
 });

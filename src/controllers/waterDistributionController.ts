@@ -10,8 +10,7 @@ import {
   type MutableRefObject
 } from 'react';
 import { Building, Users, Clock, BarChart3 } from 'lucide-react';
-import type { Company, Partner as PartnerType } from '../services/dataService';
-import type { KanbanItem, ReceiptStage, Status } from '../types/entities';
+import type { Company, KanbanItem, Partner as PartnerType, ReceiptStage, Status } from '../types/entities';
 import {
   useWaterDataStore,
   selectCompanies,

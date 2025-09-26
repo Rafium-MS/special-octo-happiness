@@ -1,6 +1,6 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Company, Partner } from '../../services/dataService';
+import type { Company, Partner } from '../../types/entities';
 import type { KanbanItem, ReceiptStage } from '../../types/entities';
 import { useWaterDistributionController } from '../waterDistributionController';
 
