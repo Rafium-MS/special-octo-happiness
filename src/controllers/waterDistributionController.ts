@@ -190,6 +190,17 @@ export const useWaterDistributionController = (): WaterDistributionController =>
   );
   const { fetchAll, status, errors } = useWaterDataStore(metaSelector);
 
+  const { createCompany, createPartner, moveKanbanItem } = useWaterDataStore(
+    useCallback(
+      (state: ReturnType<typeof useWaterDataStore.getState>) => ({
+        createCompany: state.createCompany,
+        createPartner: state.createPartner,
+        moveKanbanItem: state.moveKanbanItem
+      }),
+      []
+    )
+  );
+
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [selectedPartner, setSelectedPartner] = useState<PartnerType | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -486,38 +497,11 @@ export const useWaterDistributionController = (): WaterDistributionController =>
 
   const handleCompanyFormSubmit = useCallback(
     async (values: CompanyFormValues) => {
-      const payload = {
-        name: values.name,
-        type: values.type,
-        stores: values.stores,
-        total_value: values.totalValue,
-        status: values.status,
-        contact_name: values.contactName,
-        contact_phone: values.contactPhone,
-        contact_email: values.contactEmail
-      } as const;
-
-      const state = useWaterDataStore.getState();
-      const fallbackId =
-        state.companies.allIds.length > 0 ? Math.max(...state.companies.allIds) + 1 : 1;
-
       try {
-        let newId = fallbackId;
-
-        if (window.api?.companies?.create) {
-          const response = await window.api.companies.create(payload);
-          if (!response || typeof response.id !== 'number') {
-            throw new Error('Resposta inválida ao criar empresa.');
-          }
-          newId = response.id;
-        }
-
-        const company: Company = {
-          id: newId,
+        const company = await createCompany({
           name: values.name,
           type: values.type,
           stores: values.stores,
-          storesByState: null,
           totalValue: values.totalValue,
           status: values.status,
           contact: {
@@ -525,16 +509,7 @@ export const useWaterDistributionController = (): WaterDistributionController =>
             phone: values.contactPhone,
             email: values.contactEmail
           }
-        };
-
-        useWaterDataStore.setState((current) => ({
-          companies: {
-            byId: { ...current.companies.byId, [company.id]: company },
-            allIds: current.companies.allIds.includes(company.id)
-              ? current.companies.allIds
-              : [...current.companies.allIds, company.id]
-          }
-        }));
+        });
 
         showToast(`Empresa ${company.name} cadastrada com sucesso.`, 'success');
         setShowForm(false);
@@ -545,59 +520,24 @@ export const useWaterDistributionController = (): WaterDistributionController =>
         throw new Error(message);
       }
     },
-    [showToast]
+    [createCompany, showToast]
   );
 
   const handlePartnerFormSubmit = useCallback(
     async (values: PartnerFormValues) => {
-      const payload = {
-        name: values.name,
-        region: values.region,
-        status: values.status,
-        receipts_status: values.receiptsStatus,
-        contact_name: values.contactName,
-        contact_phone: values.contactPhone,
-        contact_email: values.contactEmail,
-        cities_json: JSON.stringify(values.cities)
-      } as const;
-
-      const state = useWaterDataStore.getState();
-      const fallbackId =
-        state.partners.allIds.length > 0 ? Math.max(...state.partners.allIds) + 1 : 1;
-
       try {
-        let newId = fallbackId;
-
-        if (window.api?.partners?.create) {
-          const response = await window.api.partners.create(payload);
-          if (!response || typeof response.id !== 'number') {
-            throw new Error('Resposta inválida ao criar parceiro.');
-          }
-          newId = response.id;
-        }
-
-        const partner: PartnerType = {
-          id: newId,
+        const partner = await createPartner({
           name: values.name,
           region: values.region,
-          cities: values.cities,
+          status: values.status,
+          receiptsStatus: values.receiptsStatus,
           contact: {
             name: values.contactName,
             phone: values.contactPhone,
             email: values.contactEmail
           },
-          status: values.status,
-          receiptsStatus: values.receiptsStatus
-        };
-
-        useWaterDataStore.setState((current) => ({
-          partners: {
-            byId: { ...current.partners.byId, [partner.id]: partner },
-            allIds: current.partners.allIds.includes(partner.id)
-              ? current.partners.allIds
-              : [...current.partners.allIds, partner.id]
-          }
-        }));
+          cities: values.cities
+        });
 
         showToast(`Parceiro ${partner.name} cadastrado com sucesso.`, 'success');
         setShowForm(false);
@@ -608,7 +548,7 @@ export const useWaterDistributionController = (): WaterDistributionController =>
         throw new Error(message);
       }
     },
-    [showToast]
+    [createPartner, showToast]
   );
 
   const handleSelectCompany = useCallback((company: Company) => {
@@ -659,17 +599,26 @@ export const useWaterDistributionController = (): WaterDistributionController =>
   }, []);
 
   const handleMoveStage = useCallback(
-    (item: KanbanItem) => {
+    async (item: KanbanItem) => {
       const nextStage = getNextStage(item.stage);
       if (!nextStage) {
         showToast(`${item.company} já está no estágio final do pipeline.`, 'info');
         return;
       }
 
-      const nextStageTitle = RECEIPT_STAGE_METADATA[nextStage].title;
-      showToast(`Mover ${item.company} para "${nextStageTitle}".`, 'info');
+      try {
+        const updated = await moveKanbanItem(item.key, nextStage);
+        const nextStageTitle = RECEIPT_STAGE_METADATA[nextStage].title;
+        showToast(`Empresa ${updated.company} movida para "${nextStageTitle}".`, 'success');
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível mover o item no pipeline.';
+        showToast(message, 'error');
+      }
     },
-    [getNextStage, showToast]
+    [getNextStage, moveKanbanItem, showToast]
   );
 
   const handleEditTotals = useCallback(

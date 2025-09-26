@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import userEvent from '@testing-library/user-event';
-import type { Company, NormalizedEntities, NormalizedKanban, Partner } from '../../types/entities';
+import type { Company, KanbanItem, NormalizedEntities, NormalizedKanban, Partner } from '../../types/entities';
 
 vi.mock('../../hooks/useThemePreference', () => ({
   useThemePreference: () => ({
@@ -79,6 +79,11 @@ type StoreState = {
   fetchPartners: () => Promise<void>;
   fetchKanban: () => Promise<void>;
   fetchAll: () => Promise<void>;
+  createCompany: () => Promise<Company>;
+  updateCompany: () => Promise<Company>;
+  createPartner: () => Promise<Partner>;
+  updatePartner: () => Promise<Partner>;
+  moveKanbanItem: () => Promise<KanbanItem>;
 };
 
 const createEmptyEntities = <T extends { id: number }>(): NormalizedEntities<T> => ({
@@ -105,7 +110,22 @@ vi.mock('../../store/useWaterDataStore', () => {
     fetchCompanies: async () => {},
     fetchPartners: async () => {},
     fetchKanban: async () => {},
-    fetchAll: async () => {}
+    fetchAll: async () => {},
+    createCompany: async () => {
+      throw new Error('createCompany não mockado');
+    },
+    updateCompany: async () => {
+      throw new Error('updateCompany não mockado');
+    },
+    createPartner: async () => {
+      throw new Error('createPartner não mockado');
+    },
+    updatePartner: async () => {
+      throw new Error('updatePartner não mockado');
+    },
+    moveKanbanItem: async () => {
+      throw new Error('moveKanbanItem não mockado');
+    }
   };
 
   const listeners = new Set<() => void>();
@@ -208,7 +228,22 @@ const createStoreState = (companies: Company[]): StoreState => ({
   fetchCompanies: async () => {},
   fetchPartners: async () => {},
   fetchKanban: async () => {},
-  fetchAll: async () => {}
+  fetchAll: async () => {},
+  createCompany: async () => {
+    throw new Error('createCompany não mockado');
+  },
+  updateCompany: async () => {
+    throw new Error('updateCompany não mockado');
+  },
+  createPartner: async () => {
+    throw new Error('createPartner não mockado');
+  },
+  updatePartner: async () => {
+    throw new Error('updatePartner não mockado');
+  },
+  moveKanbanItem: async () => {
+    throw new Error('moveKanbanItem não mockado');
+  }
 });
 
 const getTableRows = () => {
