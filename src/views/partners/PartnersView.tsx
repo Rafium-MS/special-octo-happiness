@@ -88,6 +88,19 @@ const PartnersView = ({ partners }: { partners: PartnersViewModel }) => {
                   />
                   <div className="flex items-center gap-4">
                     <button
+                      onClick={() => {
+                        const message = `Tem certeza que deseja excluir o parceiro ${partner.name}?`;
+                        if (typeof window !== 'undefined' && !window.confirm(message)) {
+                          return;
+                        }
+                        partners.onDelete(partner);
+                      }}
+                      className="text-sm font-medium text-red-600 hover:text-red-800"
+                      aria-label={`Excluir parceiro ${partner.name}`}
+                    >
+                      Excluir
+                    </button>
+                    <button
                       onClick={() => partners.onEdit(partner)}
                       className="text-sm font-medium text-gray-700 hover:text-gray-900"
                       aria-label={`Editar parceiro ${partner.name}`}
