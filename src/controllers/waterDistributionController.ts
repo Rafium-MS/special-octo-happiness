@@ -7,7 +7,7 @@ import {
   useId,
   type ChangeEvent,
   type KeyboardEvent,
-  type MutableRefObject
+  type Ref
 } from 'react';
 import { Building, Users, Clock, BarChart3 } from 'lucide-react';
 import type { Company, KanbanItem, Partner as PartnerType, ReceiptStage, Status } from '../types/entities';
@@ -97,7 +97,7 @@ export type CompaniesViewModel = {
     visibleCompanies: Company[];
     totalFilteredCompanies: number;
     hasMoreCompanies: boolean;
-    sentinelRef: MutableRefObject<HTMLDivElement | null>;
+    sentinelRef: Ref<HTMLDivElement>;
   };
   states: {
     showSkeleton: boolean;
@@ -121,6 +121,7 @@ export type PartnersViewModel = {
   onViewDetails: (partner: PartnerType) => void;
   onOpenForm: () => void;
   onEdit: (partner: PartnerType) => void;
+  onDelete: (partner: PartnerType) => void;
 };
 
 export type KanbanViewModel = {
@@ -201,6 +202,7 @@ export const useWaterDistributionController = (): WaterDistributionController =>
     deleteCompany,
     createPartner,
     updatePartner,
+    deletePartner,
     moveKanbanItem
   } =
     useWaterDataStore(
@@ -211,6 +213,7 @@ export const useWaterDistributionController = (): WaterDistributionController =>
           deleteCompany: state.deleteCompany,
           createPartner: state.createPartner,
           updatePartner: state.updatePartner,
+          deletePartner: state.deletePartner,
           moveKanbanItem: state.moveKanbanItem
         }),
         []
@@ -238,7 +241,10 @@ export const useWaterDistributionController = (): WaterDistributionController =>
   const companyDialogTitleId = useId();
   const partnerDialogTitleId = useId();
   const formDialogTitleId = useId();
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [sentinelElement, setSentinelElement] = useState<HTMLDivElement | null>(null);
+  const loadMoreRef = useCallback((node: HTMLDivElement | null) => {
+    setSentinelElement(node);
+  }, []);
 
   const isIdle =
     status.companies === 'idle' && status.partners === 'idle' && status.kanban === 'idle';
@@ -475,9 +481,7 @@ export const useWaterDistributionController = (): WaterDistributionController =>
   const hasMoreCompanies = totalFilteredCompanies > visibleCount;
 
   useEffect(() => {
-    const sentinel = loadMoreRef.current;
-
-    if (!sentinel || !hasMoreCompanies) {
+    if (!sentinelElement || !hasMoreCompanies) {
       return;
     }
 
@@ -491,12 +495,12 @@ export const useWaterDistributionController = (): WaterDistributionController =>
       { rootMargin: '0px 0px 200px 0px', threshold: 0.1 }
     );
 
-    observer.observe(sentinel);
+    observer.observe(sentinelElement);
 
     return () => {
       observer.disconnect();
     };
-  }, [hasMoreCompanies, totalFilteredCompanies]);
+  }, [sentinelElement, hasMoreCompanies, totalFilteredCompanies]);
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
@@ -683,6 +687,24 @@ export const useWaterDistributionController = (): WaterDistributionController =>
     setSelectedPartner(partner);
   }, []);
 
+  const handleDeletePartner = useCallback(
+    async (partner: PartnerType) => {
+      try {
+        await deletePartner(partner.id);
+        showToast(`Parceiro ${partner.name} excluído.`, 'info');
+        setSelectedPartner((previous) => (previous?.id === partner.id ? null : previous));
+        setEditingPartner((previous) => (previous?.id === partner.id ? null : previous));
+        setShowForm(false);
+      } catch (error) {
+        console.error('[WaterDistributionController] Falha ao excluir parceiro', error);
+        const message =
+          error instanceof Error ? error.message : 'Não foi possível excluir o parceiro.';
+        showToast(message, 'error');
+      }
+    },
+    [deletePartner, showToast]
+  );
+
   const handleActionKeyDown = useCallback((event: KeyboardEvent<HTMLButtonElement>) => {
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
       return;
@@ -816,7 +838,8 @@ export const useWaterDistributionController = (): WaterDistributionController =>
     error: errors.partners || null,
     onViewDetails: handleSelectPartner,
     onOpenForm: handleOpenPartnerForm,
-    onEdit: handleEditPartner
+    onEdit: handleEditPartner,
+    onDelete: handleDeletePartner
   };
 
   const kanbanView: KanbanViewModel = {

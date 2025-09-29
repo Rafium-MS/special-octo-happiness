@@ -55,6 +55,7 @@ type StoreState = {
   updateCompany: (id: number, input: CompanyInput) => Promise<Company>;
   createPartner: (input: PartnerInput) => Promise<Partner>;
   updatePartner: (id: number, input: PartnerInput) => Promise<Partner>;
+  deletePartner: (id: number) => Promise<void>;
   moveKanbanItem: (key: string, nextStage: ReceiptStage) => Promise<KanbanItem>;
 };
 
@@ -93,6 +94,9 @@ const createDefaultState = (): StoreState => ({
   },
   updatePartner: async () => {
     throw new Error('updatePartner não mockado');
+  },
+  deletePartner: async () => {
+    throw new Error('deletePartner não mockado');
   },
   moveKanbanItem: async () => {
     throw new Error('moveKanbanItem não mockado');
@@ -392,6 +396,82 @@ describe('useWaterDistributionController', () => {
     ).rejects.toThrow('Erro ao salvar parceiro');
 
     expect(result.current.toasts.items).toHaveLength(0);
+  });
+
+  it('deletes partners through the store action and shows a toast', async () => {
+    const partner: Partner = {
+      id: 2,
+      name: 'Distribuidora Oeste',
+      region: 'Oeste',
+      cities: ['Cuiabá'],
+      contact: {
+        name: 'Marcos',
+        phone: '(11) 97777-0000',
+        email: 'marcos@example.com'
+      },
+      status: 'ativo',
+      receiptsStatus: 'enviado'
+    };
+
+    const deletePartner = vi.fn().mockResolvedValue(undefined);
+    const state = createDefaultState();
+    state.partners = createEntities([partner]);
+    state.deletePartner = deletePartner;
+    setStoreState(state);
+
+    const { result } = renderHook(() => useWaterDistributionController());
+
+    await act(async () => {
+      await result.current.partners.onDelete(partner);
+    });
+
+    expect(deletePartner).toHaveBeenCalledWith(partner.id);
+    expect(result.current.toasts.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: `Parceiro ${partner.name} excluído.`,
+          tone: 'info'
+        })
+      ])
+    );
+  });
+
+  it('shows an error toast when partner deletion fails', async () => {
+    const partner: Partner = {
+      id: 3,
+      name: 'Distribuidora Sul',
+      region: 'Sul',
+      cities: ['Porto Alegre'],
+      contact: {
+        name: 'Laura',
+        phone: '(51) 98888-1111',
+        email: 'laura@example.com'
+      },
+      status: 'inativo',
+      receiptsStatus: 'pendente'
+    };
+
+    const deletePartner = vi.fn().mockRejectedValue(new Error('Falha ao excluir parceiro'));
+    const state = createDefaultState();
+    state.partners = createEntities([partner]);
+    state.deletePartner = deletePartner;
+    setStoreState(state);
+
+    const { result } = renderHook(() => useWaterDistributionController());
+
+    await act(async () => {
+      await result.current.partners.onDelete(partner);
+    });
+
+    expect(deletePartner).toHaveBeenCalledWith(partner.id);
+    expect(result.current.toasts.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: 'Falha ao excluir parceiro',
+          tone: 'error'
+        })
+      ])
+    );
   });
 
   it('moves kanban items through the store action and shows a toast', async () => {

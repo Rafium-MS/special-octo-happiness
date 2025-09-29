@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import userEvent from '@testing-library/user-event';
 import type { Company, KanbanItem, NormalizedEntities, NormalizedKanban, Partner } from '../../types/entities';
@@ -83,22 +83,27 @@ type StoreState = {
   updateCompany: () => Promise<Company>;
   createPartner: () => Promise<Partner>;
   updatePartner: () => Promise<Partner>;
+  deletePartner: () => Promise<void>;
   moveKanbanItem: () => Promise<KanbanItem>;
 };
 
-const createEmptyEntities = <T extends { id: number }>(): NormalizedEntities<T> => ({
-  byId: {},
-  allIds: []
-});
+function createEmptyEntities<T extends { id: number }>(): NormalizedEntities<T> {
+  return {
+    byId: {},
+    allIds: []
+  };
+}
 
-const createEmptyKanban = (): NormalizedKanban => ({
-  items: {},
-  byStage: {
-    recebimento: [],
-    relatorio: [],
-    nota_fiscal: []
-  }
-});
+function createEmptyKanban(): NormalizedKanban {
+  return {
+    items: {},
+    byStage: {
+      recebimento: [],
+      relatorio: [],
+      nota_fiscal: []
+    }
+  };
+}
 
 vi.mock('../../store/useWaterDataStore', () => {
   let storeState: StoreState = {
@@ -122,6 +127,9 @@ vi.mock('../../store/useWaterDataStore', () => {
     },
     updatePartner: async () => {
       throw new Error('updatePartner não mockado');
+    },
+    deletePartner: async () => {
+      throw new Error('deletePartner não mockado');
     },
     moveKanbanItem: async () => {
       throw new Error('moveKanbanItem não mockado');
@@ -241,6 +249,9 @@ const createStoreState = (companies: Company[]): StoreState => ({
   updatePartner: async () => {
     throw new Error('updatePartner não mockado');
   },
+  deletePartner: async () => {
+    throw new Error('deletePartner não mockado');
+  },
   moveKanbanItem: async () => {
     throw new Error('moveKanbanItem não mockado');
   }
@@ -340,6 +351,18 @@ describe('WaterDistributionSystem companies table', () => {
     await user.click(screen.getByRole('button', { name: /Empresas/i }));
 
     expect(getTableRows()).toHaveLength(10);
+
+    act(() => {
+      __setStoreState(createStoreState(companies.slice(0, 11)));
+    });
+
+    act(() => {
+      __setStoreState(createStoreState(companies));
+    });
+
+    await waitFor(() => {
+      expect(intersectionCallbacks).not.toHaveLength(0);
+    });
 
     intersectionCallbacks.forEach((callback) =>
       callback([{ isIntersecting: true } as IntersectionObserverEntry])

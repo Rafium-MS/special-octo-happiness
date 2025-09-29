@@ -141,9 +141,13 @@ describe('CompaniesView', () => {
 });
 
 describe('PartnersView', () => {
-  it('renders partner cards and triggers details callback', () => {
+  it('renders partner cards and triggers callbacks', () => {
     const onOpenForm = vi.fn();
     const onViewDetails = vi.fn();
+    const onEdit = vi.fn();
+    const onDelete = vi.fn();
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
 
     const viewModel: PartnersViewModel = {
       items: [samplePartner],
@@ -151,13 +155,24 @@ describe('PartnersView', () => {
       isFetching: false,
       error: null,
       onOpenForm,
-      onViewDetails
+      onViewDetails,
+      onEdit,
+      onDelete
     };
 
     render(<PartnersView partners={viewModel} />);
 
     fireEvent.click(screen.getByRole('button', { name: /Ver Detalhes/i }));
     expect(onViewDetails).toHaveBeenCalledWith(samplePartner);
+
+    fireEvent.click(screen.getByRole('button', { name: /Editar parceiro/i }));
+    expect(onEdit).toHaveBeenCalledWith(samplePartner);
+
+    fireEvent.click(screen.getByRole('button', { name: /Excluir parceiro/i }));
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(onDelete).toHaveBeenCalledWith(samplePartner);
+
+    confirmSpy.mockRestore();
     expect(screen.getByText('Distribuidora Norte')).toBeInTheDocument();
   });
 });
