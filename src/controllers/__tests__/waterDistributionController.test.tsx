@@ -99,51 +99,68 @@ const createDefaultState = (): StoreState => ({
   }
 });
 
+const defaultState = createDefaultState();
+
 let storeState: StoreState = createDefaultState();
 const listeners = new Set<() => void>();
 
-const useWaterDataStore = (<T>(selector?: (state: StoreState) => T) =>
-  selector ? selector(storeState) : (storeState as unknown as T)) as unknown as {
-  (): StoreState;
-  <TSelected>(selector: (state: StoreState) => TSelected): TSelected;
-  getState: () => StoreState;
-  setState: (
-    updater: Partial<StoreState> | ((state: StoreState) => Partial<StoreState>),
-    replace?: boolean
-  ) => void;
-  subscribe: (listener: () => void) => () => void;
-};
+function baseUseWaterDataStore<T>(selector?: (state: StoreState) => T) {
+  return selector ? selector(storeState) : (storeState as unknown as T);
+}
 
-useWaterDataStore.getState = () => storeState;
-useWaterDataStore.setState = (updater, replace = false) => {
-  const nextState = typeof updater === 'function' ? updater(storeState) : updater;
-  storeState = replace ? (nextState as StoreState) : { ...storeState, ...(nextState as Partial<StoreState>) };
-  listeners.forEach((listener) => listener());
-};
-useWaterDataStore.subscribe = (listener: () => void) => {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-};
+function selectCompanies(state: StoreState) {
+  return state.companies.allIds.map((id) => state.companies.byId[id]);
+}
 
-const selectCompanies = (state: StoreState) => state.companies.allIds.map((id) => state.companies.byId[id]);
-const selectPartners = (state: StoreState) => state.partners.allIds.map((id) => state.partners.byId[id]);
-const selectKanbanColumns = (state: StoreState) => ({
-  recebimento: state.kanban.byStage.recebimento.map((key) => state.kanban.items[key]),
-  relatorio: state.kanban.byStage.relatorio.map((key) => state.kanban.items[key]),
-  nota_fiscal: state.kanban.byStage.nota_fiscal.map((key) => state.kanban.items[key])
-});
+function selectPartners(state: StoreState) {
+  return state.partners.allIds.map((id) => state.partners.byId[id]);
+}
+
+function selectKanbanColumns(state: StoreState) {
+  return {
+    recebimento: state.kanban.byStage.recebimento.map((key) => state.kanban.items[key]),
+    relatorio: state.kanban.byStage.relatorio.map((key) => state.kanban.items[key]),
+    nota_fiscal: state.kanban.byStage.nota_fiscal.map((key) => state.kanban.items[key])
+  };
+}
 
 const setStoreState = (next: StoreState) => {
   storeState = next;
   listeners.forEach((listener) => listener());
 };
 
-vi.mock('../../store/useWaterDataStore', () => ({
-  useWaterDataStore,
-  selectCompanies,
-  selectPartners,
-  selectKanbanColumns
-}));
+vi.mock('../../store/useWaterDataStore', () => {
+  const useWaterDataStore = baseUseWaterDataStore as unknown as {
+    (): StoreState;
+    <TSelected>(selector: (state: StoreState) => TSelected): TSelected;
+    getState: () => StoreState;
+    setState: (
+      updater: Partial<StoreState> | ((state: StoreState) => Partial<StoreState>),
+      replace?: boolean
+    ) => void;
+    subscribe: (listener: () => void) => () => void;
+  };
+
+  useWaterDataStore.getState = () => storeState;
+  useWaterDataStore.setState = (updater, replace = false) => {
+    const nextState = typeof updater === 'function' ? updater(storeState) : updater;
+    storeState = replace
+      ? (nextState as StoreState)
+      : { ...storeState, ...(nextState as Partial<StoreState>) };
+    listeners.forEach((listener) => listener());
+  };
+  useWaterDataStore.subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  };
+
+  return {
+    useWaterDataStore,
+    selectCompanies,
+    selectPartners,
+    selectKanbanColumns
+  };
+});
 
 beforeEach(() => {
   storeState = createDefaultState();
@@ -177,7 +194,7 @@ describe('useWaterDistributionController', () => {
     });
   });
 
-  it('adds a toast when editing a company', () => {
+  it('opens the company form in edit mode when editing a company', () => {
     const company: Company = {
       id: 1,
       name: 'Empresa Teste',
@@ -203,13 +220,19 @@ describe('useWaterDistributionController', () => {
       result.current.companies.actions.onEdit(company);
     });
 
-    expect(result.current.toasts.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          message: 'Empresa Empresa Teste atualizada com sucesso.',
-          tone: 'success'
-        })
-      ])
+    expect(result.current.dialogs.form.mode).toBe('edit');
+    expect(result.current.dialogs.form.company).toEqual(company);
+    expect(result.current.dialogs.form.companyInitialValues).toEqual(
+      expect.objectContaining({
+        name: company.name,
+        type: company.type,
+        stores: company.stores,
+        totalValue: company.totalValue,
+        status: company.status,
+        contactName: company.contact.name,
+        contactPhone: company.contact.phone,
+        contactEmail: company.contact.email
+      })
     );
   });
 });

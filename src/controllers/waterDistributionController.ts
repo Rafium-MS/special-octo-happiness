@@ -120,6 +120,7 @@ export type PartnersViewModel = {
   error: string | null;
   onViewDetails: (partner: PartnerType) => void;
   onOpenForm: () => void;
+  onEdit: (partner: PartnerType) => void;
 };
 
 export type KanbanViewModel = {
@@ -194,7 +195,14 @@ export const useWaterDistributionController = (): WaterDistributionController =>
   );
   const { fetchAll, status, errors } = useWaterDataStore(metaSelector);
 
-  const { createCompany, updateCompany, deleteCompany, createPartner, moveKanbanItem } =
+  const {
+    createCompany,
+    updateCompany,
+    deleteCompany,
+    createPartner,
+    updatePartner,
+    moveKanbanItem
+  } =
     useWaterDataStore(
       useCallback(
         (state: ReturnType<typeof useWaterDataStore.getState>) => ({
@@ -202,6 +210,7 @@ export const useWaterDistributionController = (): WaterDistributionController =>
           updateCompany: state.updateCompany,
           deleteCompany: state.deleteCompany,
           createPartner: state.createPartner,
+          updatePartner: state.updatePartner,
           moveKanbanItem: state.moveKanbanItem
         }),
         []
@@ -220,6 +229,7 @@ export const useWaterDistributionController = (): WaterDistributionController =>
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
   const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
+  const [editingPartner, setEditingPartner] = useState<PartnerType | null>(null);
 
   const toastTimers = useRef<Record<string, number>>({});
   const companyTitleRef = useRef<HTMLHeadingElement>(null);
@@ -305,6 +315,19 @@ export const useWaterDistributionController = (): WaterDistributionController =>
       setSelectedPartner(updated);
     }
   }, [partners, selectedPartner?.id, selectedPartner]);
+
+  useEffect(() => {
+    if (!editingPartner) return;
+    const updated = partners.find((partner) => partner.id === editingPartner.id);
+    if (!updated) {
+      setEditingPartner(null);
+      setShowForm(false);
+      return;
+    }
+    if (updated !== editingPartner) {
+      setEditingPartner(updated);
+    }
+  }, [partners, editingPartner]);
 
   const totalKanbanItems = useMemo(
     () => RECEIPT_STAGE_ORDER.reduce((sum, stage) => sum + kanbanColumns[stage].length, 0),
@@ -504,12 +527,14 @@ export const useWaterDistributionController = (): WaterDistributionController =>
 
   const handleOpenCompanyForm = useCallback(() => {
     setEditingCompany(null);
+    setEditingPartner(null);
     setShowForm(true);
     setFormType('company');
   }, []);
 
   const handleOpenPartnerForm = useCallback(() => {
     setEditingCompany(null);
+    setEditingPartner(null);
     setShowForm(true);
     setFormType('partner');
   }, []);
@@ -517,6 +542,7 @@ export const useWaterDistributionController = (): WaterDistributionController =>
   const handleCloseForm = useCallback(() => {
     setShowForm(false);
     setEditingCompany(null);
+    setEditingPartner(null);
   }, []);
 
   const handleCompanyFormSubmit = useCallback(
@@ -571,6 +597,27 @@ export const useWaterDistributionController = (): WaterDistributionController =>
   const handlePartnerFormSubmit = useCallback(
     async (values: PartnerFormValues) => {
       try {
+        if (editingPartner) {
+          const partner = await updatePartner(editingPartner.id, {
+            name: values.name,
+            region: values.region,
+            status: values.status,
+            receiptsStatus: values.receiptsStatus,
+            contact: {
+              name: values.contactName,
+              phone: values.contactPhone,
+              email: values.contactEmail
+            },
+            cities: values.cities
+          });
+
+          showToast(`Parceiro ${partner.name} atualizado com sucesso.`, 'success');
+          setEditingPartner(null);
+          setShowForm(false);
+          setSelectedPartner((previous) => (previous?.id === partner.id ? partner : previous));
+          return;
+        }
+
         const partner = await createPartner({
           name: values.name,
           region: values.region,
@@ -587,13 +634,13 @@ export const useWaterDistributionController = (): WaterDistributionController =>
         showToast(`Parceiro ${partner.name} cadastrado com sucesso.`, 'success');
         setShowForm(false);
       } catch (error) {
-        console.error('[WaterDistributionController] Falha ao criar parceiro', error);
+        console.error('[WaterDistributionController] Falha ao salvar parceiro', error);
         const message =
           error instanceof Error ? error.message : 'Não foi possível salvar o parceiro.';
         throw new Error(message);
       }
     },
-    [createPartner, showToast]
+    [createPartner, updatePartner, editingPartner, showToast]
   );
 
   const handleSelectCompany = useCallback((company: Company) => {
@@ -602,7 +649,15 @@ export const useWaterDistributionController = (): WaterDistributionController =>
 
   const handleEditCompany = useCallback((company: Company) => {
     setEditingCompany(company);
+    setEditingPartner(null);
     setFormType('company');
+    setShowForm(true);
+  }, []);
+
+  const handleEditPartner = useCallback((partner: PartnerType) => {
+    setEditingPartner(partner);
+    setEditingCompany(null);
+    setFormType('partner');
     setShowForm(true);
   }, []);
 
@@ -760,7 +815,8 @@ export const useWaterDistributionController = (): WaterDistributionController =>
     isFetching: isFetchingPartners,
     error: errors.partners || null,
     onViewDetails: handleSelectPartner,
-    onOpenForm: handleOpenPartnerForm
+    onOpenForm: handleOpenPartnerForm,
+    onEdit: handleEditPartner
   };
 
   const kanbanView: KanbanViewModel = {
@@ -787,6 +843,20 @@ export const useWaterDistributionController = (): WaterDistributionController =>
     } satisfies CompanyFormValues;
   }, [editingCompany]);
 
+  const partnerFormInitialValues = useMemo(() => {
+    if (!editingPartner) return null;
+    return {
+      name: editingPartner.name,
+      region: editingPartner.region,
+      status: editingPartner.status,
+      receiptsStatus: editingPartner.receiptsStatus,
+      contactName: editingPartner.contact.name,
+      contactPhone: editingPartner.contact.phone,
+      contactEmail: editingPartner.contact.email,
+      cities: editingPartner.cities
+    } satisfies PartnerFormValues;
+  }, [editingPartner]);
+
   const dialogs: DialogsViewModel = {
     company: {
       selected: selectedCompany,
@@ -803,7 +873,14 @@ export const useWaterDistributionController = (): WaterDistributionController =>
     form: {
       isOpen: showForm,
       type: formType,
-      mode: formType === 'company' && editingCompany ? 'edit' : 'create',
+      mode:
+        formType === 'company'
+          ? editingCompany
+            ? 'edit'
+            : 'create'
+          : editingPartner
+            ? 'edit'
+            : 'create',
       titleId: formDialogTitleId,
       initialFocusRef: formInitialFieldRef,
       onClose: handleCloseForm,
@@ -812,7 +889,7 @@ export const useWaterDistributionController = (): WaterDistributionController =>
       citySuggestions,
       company: editingCompany,
       companyInitialValues: formType === 'company' ? companyFormInitialValues : null,
-      partnerInitialValues: null
+      partnerInitialValues: formType === 'partner' ? partnerFormInitialValues : null
     }
   };
 
