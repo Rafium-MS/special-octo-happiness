@@ -10,6 +10,8 @@ import KanbanView from '../views/kanban/KanbanView';
 import CompanyDetailsDialog from '../views/companies/CompanyDetailsDialog';
 import PartnerDetailsDialog from '../views/partners/PartnerDetailsDialog';
 import EntityFormDialog from '../views/companies/EntityFormDialog';
+import KanbanEditTotalsDialog from '../views/kanban/KanbanEditTotalsDialog';
+import KanbanHistoryDialog from '../views/kanban/KanbanHistoryDialog';
 import ToastList from '../views/common/ToastList';
 import { useWaterDistributionController } from '../controllers/waterDistributionController';
 
@@ -71,6 +73,8 @@ const WaterDistributionSystem = () => {
       <CompanyDetailsDialog {...controller.dialogs.company} />
       <PartnerDetailsDialog {...controller.dialogs.partner} />
       <EntityFormDialog {...controller.dialogs.form} />
+      <KanbanEditTotalsDialog {...controller.dialogs.kanbanTotals} />
+      <KanbanHistoryDialog {...controller.dialogs.kanbanHistory} />
 
       <ToastList {...controller.toasts} />
     </div>

@@ -10,11 +10,19 @@ import {
   type Ref
 } from 'react';
 import { Building, Users, Clock, BarChart3 } from 'lucide-react';
-import type { Company, KanbanItem, Partner as PartnerType, ReceiptStage, Status } from '../types/entities';
+import type {
+  Company,
+  KanbanHistoryEntry,
+  KanbanItem,
+  Partner as PartnerType,
+  ReceiptStage,
+  Status
+} from '../types/entities';
 import {
   useWaterDataStore,
   selectCompanies,
   selectKanbanColumns,
+  selectKanbanHistory,
   selectPartners
 } from '../store/useWaterDataStore';
 import { RECEIPT_STAGE_METADATA, RECEIPT_STAGE_ORDER } from '../constants/receiptStageMetadata';
@@ -161,6 +169,20 @@ export type DialogsViewModel = {
     companyInitialValues: CompanyFormValues | null;
     partnerInitialValues: PartnerFormValues | null;
   };
+  kanbanTotals: {
+    isOpen: boolean;
+    item: KanbanItem | null;
+    titleId: string;
+    onClose: () => void;
+    onConfirm: (values: { receipts: number; total: number }) => Promise<void>;
+  };
+  kanbanHistory: {
+    isOpen: boolean;
+    item: KanbanItem | null;
+    titleId: string;
+    onClose: () => void;
+    entries: KanbanHistoryEntry[];
+  };
 };
 
 export type ToastsViewModel = {
@@ -185,6 +207,7 @@ export const useWaterDistributionController = (): WaterDistributionController =>
   const companies = useWaterDataStore(selectCompanies);
   const partners = useWaterDataStore(selectPartners);
   const kanbanColumns = useWaterDataStore(selectKanbanColumns);
+  const kanbanHistory = useWaterDataStore(selectKanbanHistory);
 
   const metaSelector = useCallback(
     (state: ReturnType<typeof useWaterDataStore.getState>) => ({
@@ -203,7 +226,8 @@ export const useWaterDistributionController = (): WaterDistributionController =>
     createPartner,
     updatePartner,
     deletePartner,
-    moveKanbanItem
+    moveKanbanItem,
+    updateKanbanTotals
   } =
     useWaterDataStore(
       useCallback(
@@ -214,7 +238,8 @@ export const useWaterDistributionController = (): WaterDistributionController =>
           createPartner: state.createPartner,
           updatePartner: state.updatePartner,
           deletePartner: state.deletePartner,
-          moveKanbanItem: state.moveKanbanItem
+          moveKanbanItem: state.moveKanbanItem,
+          updateKanbanTotals: state.updateKanbanTotals
         }),
         []
       )
@@ -233,6 +258,10 @@ export const useWaterDistributionController = (): WaterDistributionController =>
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
   const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
   const [editingPartner, setEditingPartner] = useState<PartnerType | null>(null);
+  const [kanbanTotalsItem, setKanbanTotalsItem] = useState<KanbanItem | null>(null);
+  const [isKanbanTotalsOpen, setIsKanbanTotalsOpen] = useState(false);
+  const [kanbanHistoryItem, setKanbanHistoryItem] = useState<KanbanItem | null>(null);
+  const [isKanbanHistoryOpen, setIsKanbanHistoryOpen] = useState(false);
 
   const toastTimers = useRef<Record<string, number>>({});
   const companyTitleRef = useRef<HTMLHeadingElement>(null);
@@ -241,9 +270,19 @@ export const useWaterDistributionController = (): WaterDistributionController =>
   const companyDialogTitleId = useId();
   const partnerDialogTitleId = useId();
   const formDialogTitleId = useId();
+  const kanbanTotalsDialogTitleId = useId();
+  const kanbanHistoryDialogTitleId = useId();
   const [sentinelElement, setSentinelElement] = useState<HTMLDivElement | null>(null);
   const loadMoreRef = useCallback((node: HTMLDivElement | null) => {
     setSentinelElement(node);
+  }, []);
+  const handleCloseKanbanTotals = useCallback(() => {
+    setIsKanbanTotalsOpen(false);
+    setKanbanTotalsItem(null);
+  }, []);
+  const handleCloseKanbanHistory = useCallback(() => {
+    setIsKanbanHistoryOpen(false);
+    setKanbanHistoryItem(null);
   }, []);
 
   const isIdle =
@@ -273,6 +312,15 @@ export const useWaterDistributionController = (): WaterDistributionController =>
       toastTimers.current[id] = timeoutId;
     },
     [dismissToast]
+  );
+
+  const totalKanbanItems = useMemo(
+    () => RECEIPT_STAGE_ORDER.reduce((sum, stage) => sum + kanbanColumns[stage].length, 0),
+    [kanbanColumns]
+  );
+  const allKanbanItems = useMemo(
+    () => RECEIPT_STAGE_ORDER.flatMap((stage) => kanbanColumns[stage]),
+    [kanbanColumns]
   );
 
   useEffect(() => () => {
@@ -335,10 +383,40 @@ export const useWaterDistributionController = (): WaterDistributionController =>
     }
   }, [partners, editingPartner]);
 
-  const totalKanbanItems = useMemo(
-    () => RECEIPT_STAGE_ORDER.reduce((sum, stage) => sum + kanbanColumns[stage].length, 0),
-    [kanbanColumns]
-  );
+  useEffect(() => {
+    if (!kanbanTotalsItem) return;
+    const updated = allKanbanItems.find((item) => item.key === kanbanTotalsItem.key) ?? null;
+    if (!updated) {
+      handleCloseKanbanTotals();
+      return;
+    }
+    if (
+      updated.receipts !== kanbanTotalsItem.receipts ||
+      updated.total !== kanbanTotalsItem.total ||
+      updated.stage !== kanbanTotalsItem.stage
+    ) {
+      setKanbanTotalsItem(updated);
+    }
+  }, [allKanbanItems, kanbanTotalsItem, handleCloseKanbanTotals]);
+
+  useEffect(() => {
+    if (!kanbanHistoryItem) return;
+    const updated =
+      allKanbanItems.find((item) => item.company === kanbanHistoryItem.company) ?? null;
+    if (!updated) {
+      handleCloseKanbanHistory();
+      return;
+    }
+    if (
+      updated.key !== kanbanHistoryItem.key ||
+      updated.stage !== kanbanHistoryItem.stage ||
+      updated.receipts !== kanbanHistoryItem.receipts ||
+      updated.total !== kanbanHistoryItem.total
+    ) {
+      setKanbanHistoryItem(updated);
+    }
+  }, [allKanbanItems, kanbanHistoryItem, handleCloseKanbanHistory]);
+
   const isFetchingCompanies = status.companies === 'loading';
   const isFetchingPartners = status.partners === 'loading';
   const isFetchingKanban = status.kanban === 'loading';
@@ -528,6 +606,12 @@ export const useWaterDistributionController = (): WaterDistributionController =>
     });
     return Array.from(suggestions).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [partners]);
+
+  const currentKanbanHistoryEntries = useMemo(() => {
+    if (!kanbanHistoryItem) return [];
+    const entries = kanbanHistory[kanbanHistoryItem.key] ?? [];
+    return [...entries].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
+  }, [kanbanHistory, kanbanHistoryItem]);
 
   const handleOpenCompanyForm = useCallback(() => {
     setEditingCompany(null);
@@ -751,19 +835,37 @@ export const useWaterDistributionController = (): WaterDistributionController =>
     [getNextStage, moveKanbanItem, showToast]
   );
 
-  const handleEditTotals = useCallback(
-    (item: KanbanItem) => {
-      showToast(`Editar totais de ${item.company}.`, 'info');
+  const handleEditTotals = useCallback((item: KanbanItem) => {
+    setKanbanTotalsItem(item);
+    setIsKanbanTotalsOpen(true);
+  }, []);
+
+  const confirmKanbanTotals = useCallback(
+    async (values: { receipts: number; total: number }) => {
+      if (!kanbanTotalsItem) {
+        throw new Error('Nenhum item selecionado para atualização.');
+      }
+
+      try {
+        const updated = await updateKanbanTotals(kanbanTotalsItem.key, values);
+        showToast(`Totais de ${updated.company} atualizados com sucesso.`, 'success');
+        handleCloseKanbanTotals();
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível atualizar os totais do pipeline.';
+        showToast(message, 'error');
+        throw new Error(message);
+      }
     },
-    [showToast]
+    [kanbanTotalsItem, updateKanbanTotals, showToast, handleCloseKanbanTotals]
   );
 
-  const handleViewHistory = useCallback(
-    (item: KanbanItem) => {
-      showToast(`Abrir histórico de ${item.company}.`, 'info');
-    },
-    [showToast]
-  );
+  const handleViewHistory = useCallback((item: KanbanItem) => {
+    setKanbanHistoryItem(item);
+    setIsKanbanHistoryOpen(true);
+  }, []);
 
   const dashboard: DashboardViewModel = {
     statCards: [
@@ -913,6 +1015,20 @@ export const useWaterDistributionController = (): WaterDistributionController =>
       company: editingCompany,
       companyInitialValues: formType === 'company' ? companyFormInitialValues : null,
       partnerInitialValues: formType === 'partner' ? partnerFormInitialValues : null
+    },
+    kanbanTotals: {
+      isOpen: isKanbanTotalsOpen && Boolean(kanbanTotalsItem),
+      item: kanbanTotalsItem,
+      titleId: kanbanTotalsDialogTitleId,
+      onClose: handleCloseKanbanTotals,
+      onConfirm: confirmKanbanTotals
+    },
+    kanbanHistory: {
+      isOpen: isKanbanHistoryOpen && Boolean(kanbanHistoryItem),
+      item: kanbanHistoryItem,
+      titleId: kanbanHistoryDialogTitleId,
+      onClose: handleCloseKanbanHistory,
+      entries: currentKanbanHistoryEntries
     }
   };
 

@@ -16,6 +16,7 @@ const resetStore = () => {
           nota_fiscal: []
         }
       },
+      kanbanHistory: {},
       status: state.status,
       errors: state.errors
     },
@@ -219,5 +220,63 @@ describe('useWaterDataStore model actions', () => {
     expect(state.kanban.items[moved.key]).toEqual(moved);
     expect(state.kanban.byStage.recebimento).not.toContain(item.key);
     expect(state.kanban.byStage.relatorio).toContain(moved.key);
+    expect(state.kanbanHistory[moved.key]).toBeDefined();
+    expect(state.kanbanHistory[moved.key]?.at(-1)).toEqual(
+      expect.objectContaining({
+        stage: 'relatorio',
+        receipts: item.receipts,
+        total: item.total
+      })
+    );
+  });
+
+  it('updates kanban totals and records history entries', async () => {
+    const item: KanbanItem = {
+      key: 'Empresa Norte:recebimento',
+      company: 'Empresa Norte',
+      stage: 'recebimento',
+      receipts: 5,
+      total: 10
+    };
+
+    useWaterDataStore.setState({
+      kanban: {
+        items: { [item.key]: item },
+        byStage: {
+          recebimento: [item.key],
+          relatorio: [],
+          nota_fiscal: []
+        }
+      },
+      kanbanHistory: { [item.key]: [] }
+    });
+
+    const upsert = vi.fn().mockResolvedValue({ ok: true });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).api = {
+      companies: {},
+      partners: {},
+      kanban: { upsert }
+    };
+
+    const updated = await useWaterDataStore
+      .getState()
+      .updateKanbanTotals(item.key, { receipts: 7, total: 12 });
+
+    expect(upsert).toHaveBeenCalledWith({
+      company: item.company,
+      stage: item.stage,
+      receipts: 7,
+      total: 12
+    });
+    expect(updated.receipts).toBe(7);
+    expect(updated.total).toBe(12);
+
+    const state = useWaterDataStore.getState();
+    expect(state.kanban.items[item.key]).toEqual(updated);
+    expect(state.kanbanHistory[item.key]).toHaveLength(1);
+    expect(state.kanbanHistory[item.key]?.[0]).toEqual(
+      expect.objectContaining({ stage: item.stage, receipts: 7, total: 12 })
+    );
   });
 });
