@@ -130,7 +130,7 @@ vi.mock('../../store/useWaterDataStore', () => {
 
   const listeners = new Set<() => void>();
 
-  const useWaterDataStore = (<T>(selector?: (state: StoreState) => T) =>
+  const useWaterDataStore = (<T,>(selector?: (state: StoreState) => T) =>
     selector ? selector(storeState) : (storeState as unknown as T)) as unknown as {
     (): StoreState;
     <TSelected>(selector: (state: StoreState) => TSelected): TSelected;

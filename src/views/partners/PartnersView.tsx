@@ -86,13 +86,22 @@ const PartnersView = ({ partners }: { partners: PartnersViewModel }) => {
                     label={`Comprovantes: ${partner.receiptsStatus === 'enviado' ? 'Enviados' : 'Pendentes'}`}
                     tone={partner.receiptsStatus === 'enviado' ? 'success' : 'warning'}
                   />
-                  <button
-                    onClick={() => partners.onViewDetails(partner)}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                    aria-label={`Ver detalhes do parceiro ${partner.name}`}
-                  >
-                    Ver Detalhes
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => partners.onEdit(partner)}
+                      className="text-sm font-medium text-gray-700 hover:text-gray-900"
+                      aria-label={`Editar parceiro ${partner.name}`}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => partners.onViewDetails(partner)}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                      aria-label={`Ver detalhes do parceiro ${partner.name}`}
+                    >
+                      Ver Detalhes
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
