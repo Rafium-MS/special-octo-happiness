@@ -73,6 +73,7 @@ type StoreState = {
   companies: NormalizedEntities<Company>;
   partners: NormalizedEntities<Partner>;
   kanban: NormalizedKanban;
+  kanbanHistory: Record<string, Array<{ timestamp: string; stage: string; receipts: number; total: number }>>;
   status: { companies: LoadStatus; partners: LoadStatus; kanban: LoadStatus };
   errors: { companies: string | null; partners: string | null; kanban: string | null };
   fetchCompanies: () => Promise<void>;
@@ -85,6 +86,7 @@ type StoreState = {
   updatePartner: () => Promise<Partner>;
   deletePartner: () => Promise<void>;
   moveKanbanItem: () => Promise<KanbanItem>;
+  updateKanbanTotals: () => Promise<KanbanItem>;
 };
 
 function createEmptyEntities<T extends { id: number }>(): NormalizedEntities<T> {
@@ -110,6 +112,7 @@ vi.mock('../../store/useWaterDataStore', () => {
     companies: createEmptyEntities<Company>(),
     partners: createEmptyEntities<Partner>(),
     kanban: createEmptyKanban(),
+    kanbanHistory: {},
     status: { companies: 'success', partners: 'success', kanban: 'success' },
     errors: { companies: null, partners: null, kanban: null },
     fetchCompanies: async () => {},
@@ -133,6 +136,9 @@ vi.mock('../../store/useWaterDataStore', () => {
     },
     moveKanbanItem: async () => {
       throw new Error('moveKanbanItem não mockado');
+    },
+    updateKanbanTotals: async () => {
+      throw new Error('updateKanbanTotals não mockado');
     }
   };
 
@@ -172,11 +178,14 @@ vi.mock('../../store/useWaterDataStore', () => {
     nota_fiscal: state.kanban.byStage.nota_fiscal.map((key) => state.kanban.items[key])
   });
 
+  const selectKanbanHistory = (state: StoreState) => state.kanbanHistory;
+
   return {
     useWaterDataStore,
     selectCompanies,
     selectPartners,
     selectKanbanColumns,
+    selectKanbanHistory,
     __setStoreState: (next: StoreState) => {
       storeState = next;
       listeners.forEach((listener) => listener());
@@ -231,6 +240,7 @@ const createStoreState = (companies: Company[]): StoreState => ({
   companies: normalizeCompanies(companies),
   partners: createEmptyEntities<Partner>(),
   kanban: createEmptyKanban(),
+  kanbanHistory: {},
   status: { companies: 'success', partners: 'success', kanban: 'success' },
   errors: { companies: null, partners: null, kanban: null },
   fetchCompanies: async () => {},
@@ -254,6 +264,9 @@ const createStoreState = (companies: Company[]): StoreState => ({
   },
   moveKanbanItem: async () => {
     throw new Error('moveKanbanItem não mockado');
+  },
+  updateKanbanTotals: async () => {
+    throw new Error('updateKanbanTotals não mockado');
   }
 });
 

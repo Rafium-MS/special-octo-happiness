@@ -1,4 +1,11 @@
-import type { Company, KanbanItem, NormalizedEntities, NormalizedKanban, Partner } from '../types/entities';
+import type {
+  Company,
+  KanbanHistoryEntry,
+  KanbanItem,
+  NormalizedEntities,
+  NormalizedKanban,
+  Partner
+} from '../types/entities';
 import { companyRepository } from '../repositories/companyRepository';
 import { kanbanRepository } from '../repositories/kanbanRepository';
 import { partnerRepository } from '../repositories/partnerRepository';
@@ -30,6 +37,7 @@ type WaterDataState = {
   companies: NormalizedEntities<Company>;
   partners: NormalizedEntities<Partner>;
   kanban: NormalizedKanban;
+  kanbanHistory: Record<string, KanbanHistoryEntry[]>;
   status: {
     companies: LoadStatus;
     partners: LoadStatus;
@@ -51,6 +59,10 @@ type WaterDataState = {
   updatePartner: (id: number, input: PartnerInput) => Promise<Partner>;
   deletePartner: (id: number) => Promise<void>;
   moveKanbanItem: (key: string, nextStage: ReceiptStage) => Promise<KanbanItem>;
+  updateKanbanTotals: (
+    key: string,
+    totals: { receipts: number; total: number }
+  ) => Promise<KanbanItem>;
 };
 
 function setLoading(state: WaterDataState, key: keyof WaterDataState['status']): WaterDataState {
@@ -89,6 +101,7 @@ export const useWaterDataStore = createStore<WaterDataState>((set, get) => ({
   companies: companyRepository.createEmpty(),
   partners: partnerRepository.createEmpty(),
   kanban: kanbanRepository.createEmpty(),
+  kanbanHistory: {},
   status: {
     companies: 'idle',
     partners: 'idle',
@@ -123,7 +136,25 @@ export const useWaterDataStore = createStore<WaterDataState>((set, get) => ({
     set((state) => setLoading(state, 'kanban'));
     try {
       const kanban = await kanbanRepository.list();
-      set((state) => setSuccess(state, 'kanban', { kanban }));
+      set((state) => {
+        const nextState = setSuccess(state, 'kanban', { kanban });
+        const nextHistory = { ...state.kanbanHistory };
+
+        Object.values(kanban.items).forEach((item) => {
+          if (!nextHistory[item.key] || nextHistory[item.key].length === 0) {
+            nextHistory[item.key] = [
+              {
+                timestamp: new Date().toISOString(),
+                stage: item.stage,
+                receipts: item.receipts,
+                total: item.total
+              }
+            ];
+          }
+        });
+
+        return { ...nextState, kanbanHistory: nextHistory };
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível carregar o pipeline.';
       set((state) => setError(state, 'kanban', message));
@@ -392,11 +423,22 @@ export const useWaterDataStore = createStore<WaterDataState>((set, get) => ({
     const updated: KanbanItem = { ...existing, key: nextKey, stage: nextStage };
 
     set((current) => {
-      const { kanban } = current;
+      const { kanban, kanbanHistory } = current;
       const { [key]: _, ...otherItems } = kanban.items;
 
       const removeFromCurrent = kanban.byStage[existing.stage].filter((itemKey) => itemKey !== key);
       const addToNext = kanban.byStage[nextStage].filter((itemKey) => itemKey !== nextKey);
+
+      const existingHistory = kanbanHistory[key] ?? [];
+      const historyWithoutOldKey = { ...kanbanHistory };
+      delete historyWithoutOldKey[key];
+      const nextHistoryEntry: KanbanHistoryEntry = {
+        timestamp: new Date().toISOString(),
+        stage: nextStage,
+        receipts: existing.receipts,
+        total: existing.total
+      };
+      const updatedHistory = historyWithoutOldKey[nextKey] ?? existingHistory;
 
       return {
         kanban: {
@@ -406,6 +448,57 @@ export const useWaterDataStore = createStore<WaterDataState>((set, get) => ({
             [existing.stage]: removeFromCurrent,
             [nextStage]: [...addToNext, nextKey]
           }
+        },
+        kanbanHistory: {
+          ...historyWithoutOldKey,
+          [nextKey]: [...updatedHistory, nextHistoryEntry]
+        }
+      };
+    });
+
+    return updated;
+  },
+  async updateKanbanTotals(key, totals) {
+    const state = get();
+    const existing = state.kanban.items[key];
+
+    if (!existing) {
+      throw new Error('Item do pipeline não encontrado.');
+    }
+
+    const payload: KanbanPayload = {
+      company: existing.company,
+      stage: existing.stage,
+      receipts: totals.receipts,
+      total: totals.total
+    };
+
+    if (window.api?.kanban?.upsert) {
+      const response = await window.api.kanban.upsert(payload);
+      if (!response || response.ok !== true) {
+        throw new Error('Não foi possível atualizar os totais do pipeline.');
+      }
+    }
+
+    const updated: KanbanItem = { ...existing, receipts: totals.receipts, total: totals.total };
+
+    set((current) => {
+      const { kanban, kanbanHistory } = current;
+      const historyEntry: KanbanHistoryEntry = {
+        timestamp: new Date().toISOString(),
+        stage: updated.stage,
+        receipts: updated.receipts,
+        total: updated.total
+      };
+
+      return {
+        kanban: {
+          items: { ...kanban.items, [key]: updated },
+          byStage: kanban.byStage
+        },
+        kanbanHistory: {
+          ...kanbanHistory,
+          [key]: [...(kanbanHistory[key] ?? []), historyEntry]
         }
       };
     });
@@ -427,3 +520,6 @@ export const selectKanbanColumns = (
     columns[stage] = state.kanban.byStage[stage].map((key) => state.kanban.items[key]);
     return columns;
   }, {} as Record<ReceiptStage, KanbanItem[]>);
+
+export const selectKanbanHistory = (state: WaterDataState): WaterDataState['kanbanHistory'] =>
+  state.kanbanHistory;

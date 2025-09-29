@@ -42,6 +42,13 @@ export type KanbanItem = {
   total: number;
 };
 
+export type KanbanHistoryEntry = {
+  timestamp: string;
+  stage: ReceiptStage;
+  receipts: number;
+  total: number;
+};
+
 export type NormalizedEntities<T extends { id: number }> = {
   byId: Record<number, T>;
   allIds: number[];

@@ -1,7 +1,6 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Company, Partner } from '../../types/entities';
-import type { KanbanItem, ReceiptStage } from '../../types/entities';
+import type { Company, KanbanHistoryEntry, KanbanItem, Partner, ReceiptStage } from '../../types/entities';
 import { useWaterDistributionController } from '../waterDistributionController';
 
 vi.stubGlobal('IntersectionObserver', class {
@@ -45,6 +44,7 @@ type StoreState = {
   companies: NormalizedEntities<Company>;
   partners: NormalizedEntities<Partner>;
   kanban: NormalizedKanban;
+  kanbanHistory: Record<string, KanbanHistoryEntry[]>;
   status: { companies: LoadStatus; partners: LoadStatus; kanban: LoadStatus };
   errors: { companies: string | null; partners: string | null; kanban: string | null };
   fetchCompanies: () => Promise<void>;
@@ -57,6 +57,10 @@ type StoreState = {
   updatePartner: (id: number, input: PartnerInput) => Promise<Partner>;
   deletePartner: (id: number) => Promise<void>;
   moveKanbanItem: (key: string, nextStage: ReceiptStage) => Promise<KanbanItem>;
+  updateKanbanTotals: (
+    key: string,
+    totals: { receipts: number; total: number }
+  ) => Promise<KanbanItem>;
 };
 
 const createEntities = <T extends { id: number }>(items: T[]): NormalizedEntities<T> => ({
@@ -77,6 +81,7 @@ const createDefaultState = (): StoreState => ({
   companies: createEntities([]),
   partners: createEntities([]),
   kanban: createKanban(),
+  kanbanHistory: {},
   status: { companies: 'idle', partners: 'idle', kanban: 'idle' },
   errors: { companies: null, partners: null, kanban: null },
   fetchCompanies: async () => {},
@@ -100,6 +105,9 @@ const createDefaultState = (): StoreState => ({
   },
   moveKanbanItem: async () => {
     throw new Error('moveKanbanItem não mockado');
+  },
+  updateKanbanTotals: async () => {
+    throw new Error('updateKanbanTotals não mockado');
   }
 });
 
@@ -162,7 +170,8 @@ vi.mock('../../store/useWaterDataStore', () => {
     useWaterDataStore,
     selectCompanies,
     selectPartners,
-    selectKanbanColumns
+    selectKanbanColumns,
+    selectKanbanHistory: (state: StoreState) => state.kanbanHistory
   };
 });
 
@@ -396,6 +405,92 @@ describe('useWaterDistributionController', () => {
     ).rejects.toThrow('Erro ao salvar parceiro');
 
     expect(result.current.toasts.items).toHaveLength(0);
+  });
+
+  it('abre o diálogo de totais do pipeline e confirma atualizações via store', async () => {
+    const item: KanbanItem = {
+      key: 'Empresa Norte:recebimento',
+      company: 'Empresa Norte',
+      stage: 'recebimento',
+      receipts: 5,
+      total: 10
+    };
+
+    const updateKanbanTotals = vi
+      .fn()
+      .mockResolvedValue({ ...item, receipts: 7, total: 12 });
+
+    const state = createDefaultState();
+    state.kanban = createKanban([item]);
+    state.kanbanHistory = { [item.key]: [] };
+    state.updateKanbanTotals = updateKanbanTotals;
+    setStoreState(state);
+
+    const { result } = renderHook(() => useWaterDistributionController());
+
+    act(() => {
+      result.current.kanban.onEditTotals(item);
+    });
+
+    expect(result.current.dialogs.kanbanTotals.isOpen).toBe(true);
+    expect(result.current.dialogs.kanbanTotals.item).toEqual(item);
+
+    await act(async () => {
+      await result.current.dialogs.kanbanTotals.onConfirm({ receipts: 7, total: 12 });
+    });
+
+    expect(updateKanbanTotals).toHaveBeenCalledWith(item.key, { receipts: 7, total: 12 });
+    expect(result.current.dialogs.kanbanTotals.isOpen).toBe(false);
+    expect(result.current.toasts.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: `Totais de ${item.company} atualizados com sucesso.`,
+          tone: 'success'
+        })
+      ])
+    );
+  });
+
+  it('abre o histórico de um item do pipeline com as entradas ordenadas', () => {
+    const item: KanbanItem = {
+      key: 'Empresa Sul:relatorio',
+      company: 'Empresa Sul',
+      stage: 'relatorio',
+      receipts: 3,
+      total: 5
+    };
+
+    const olderEntry: KanbanHistoryEntry = {
+      timestamp: new Date('2024-01-01T10:00:00Z').toISOString(),
+      stage: 'relatorio',
+      receipts: 2,
+      total: 5
+    };
+
+    const newerEntry: KanbanHistoryEntry = {
+      timestamp: new Date('2024-02-01T10:00:00Z').toISOString(),
+      stage: 'relatorio',
+      receipts: 3,
+      total: 5
+    };
+
+    const state = createDefaultState();
+    state.kanban = createKanban([item]);
+    state.kanbanHistory = { [item.key]: [olderEntry, newerEntry] };
+    setStoreState(state);
+
+    const { result } = renderHook(() => useWaterDistributionController());
+
+    act(() => {
+      result.current.kanban.onViewHistory(item);
+    });
+
+    expect(result.current.dialogs.kanbanHistory.isOpen).toBe(true);
+    expect(result.current.dialogs.kanbanHistory.item).toEqual(item);
+    expect(result.current.dialogs.kanbanHistory.entries).toEqual([
+      expect.objectContaining({ timestamp: newerEntry.timestamp }),
+      expect.objectContaining({ timestamp: olderEntry.timestamp })
+    ]);
   });
 
   it('deletes partners through the store action and shows a toast', async () => {
